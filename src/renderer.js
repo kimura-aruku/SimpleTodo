@@ -17,6 +17,7 @@ let state = {
 let draggedTodoId = "";
 let dragPreview = null;
 let draggedItemElement = null;
+const movedEmptyTodoIds = new Set();
 
 const indentWidth = 28;
 
@@ -433,11 +434,23 @@ const renderTodos = () => {
     input.dataset.titleInput = todo.id;
     input.addEventListener("input", () => {
       todo.title = input.value;
+      if (todo.title.trim()) {
+        movedEmptyTodoIds.delete(todo.id);
+      }
       resizeTodoText(input);
       updateSummary();
     });
     input.addEventListener("blur", async () => {
       if (todo.title.trim()) {
+        await saveTodos();
+        return;
+      }
+
+      if (draggedTodoId === todo.id) {
+        return;
+      }
+
+      if (movedEmptyTodoIds.has(todo.id)) {
         await saveTodos();
         return;
       }
@@ -581,6 +594,9 @@ const moveDraggedTodo = async (intent) => {
 
   movedTodo.parentId = intent.parentId;
   remainingTodos.splice(intent.placement === "before" ? referenceIndex : referenceIndex + 1, 0, movedTodo);
+  if (!movedTodo.title.trim()) {
+    movedEmptyTodoIds.add(movedTodo.id);
+  }
 
   currentList.todos = remainingTodos;
   await saveTodos();
