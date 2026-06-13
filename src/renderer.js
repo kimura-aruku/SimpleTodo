@@ -14,6 +14,8 @@ let state = {
   lists: []
 };
 
+let draggedTodoId = "";
+
 const createTodo = () => ({
   id: crypto.randomUUID(),
   title: "",
@@ -24,7 +26,7 @@ const createTodo = () => ({
 const createTodoList = () => ({
   id: crypto.randomUUID(),
   name: `新しいリスト ${state.lists.length + 1}`,
-  todos: [],
+  todos: [createTodo()],
   createdAt: new Date().toISOString()
 });
 
@@ -56,7 +58,7 @@ const updateSummary = () => {
 
 const removeTodoFromCurrentList = (id) => {
   const currentList = getCurrentList();
-  if (!currentList) {
+  if (!currentList || currentList.todos.length <= 1) {
     return false;
   }
 
@@ -114,6 +116,39 @@ const renderTodos = () => {
     const item = document.createElement("li");
     item.className = "todo-item";
     item.dataset.completed = String(todo.completed);
+    item.dataset.todoId = todo.id;
+    item.addEventListener("dragover", (event) => {
+      event.preventDefault();
+      item.dataset.dragOver = "true";
+    });
+    item.addEventListener("dragleave", () => {
+      delete item.dataset.dragOver;
+    });
+    item.addEventListener("drop", async (event) => {
+      event.preventDefault();
+      delete item.dataset.dragOver;
+      await moveDraggedTodo(todo.id);
+    });
+
+    const dragHandle = document.createElement("button");
+    dragHandle.className = "drag-handle";
+    dragHandle.type = "button";
+    dragHandle.draggable = true;
+    dragHandle.title = "ドラッグして並び替え";
+    dragHandle.setAttribute("aria-label", "ドラッグしてTodoを並び替え");
+    dragHandle.addEventListener("dragstart", (event) => {
+      draggedTodoId = todo.id;
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("text/plain", todo.id);
+      item.dataset.dragging = "true";
+    });
+    dragHandle.addEventListener("dragend", () => {
+      draggedTodoId = "";
+      delete item.dataset.dragging;
+      document.querySelectorAll("[data-drag-over]").forEach((element) => {
+        delete element.dataset.dragOver;
+      });
+    });
 
     const checkbox = document.createElement("input");
     checkbox.className = "todo-check";
@@ -146,7 +181,10 @@ const renderTodos = () => {
       if (removeTodoFromCurrentList(todo.id)) {
         await saveTodos();
         render();
+        return;
       }
+
+      await saveTodos();
     });
     input.addEventListener("keydown", async (event) => {
       if (event.key === "Enter") {
@@ -159,6 +197,7 @@ const renderTodos = () => {
     const deleteButton = document.createElement("button");
     deleteButton.className = "icon-button danger";
     deleteButton.type = "button";
+    deleteButton.disabled = (currentList?.todos.length ?? 0) <= 1;
     deleteButton.textContent = "-";
     deleteButton.title = "このTodoを削除";
     deleteButton.setAttribute("aria-label", "このTodoを削除");
@@ -176,7 +215,7 @@ const renderTodos = () => {
     rowActions.className = "row-actions";
     rowActions.append(deleteButton, addButton);
 
-    item.append(checkbox, input, rowActions);
+    item.append(dragHandle, checkbox, input, rowActions);
     todoList.append(item);
   });
 
@@ -204,6 +243,28 @@ const addTodoAfter = async (id) => {
   const todos = getCurrentList()?.todos ?? [];
   const index = todos.findIndex((todo) => todo.id === id);
   await addTodoAt(index < 0 ? todos.length : index + 1);
+};
+
+const moveDraggedTodo = async (targetId) => {
+  if (!draggedTodoId || draggedTodoId === targetId) {
+    return;
+  }
+
+  const currentList = getCurrentList();
+  if (!currentList) {
+    return;
+  }
+
+  const fromIndex = currentList.todos.findIndex((todo) => todo.id === draggedTodoId);
+  const toIndex = currentList.todos.findIndex((todo) => todo.id === targetId);
+  if (fromIndex < 0 || toIndex < 0) {
+    return;
+  }
+
+  const [movedTodo] = currentList.todos.splice(fromIndex, 1);
+  currentList.todos.splice(toIndex, 0, movedTodo);
+  await saveTodos();
+  render();
 };
 
 const deleteTodo = async (id) => {

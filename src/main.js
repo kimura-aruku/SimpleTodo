@@ -33,7 +33,8 @@ const getTodoFilePath = () => path.join(app.getPath("userData"), "todos.json");
 
 const normalizeState = (parsed) => {
   if (Array.isArray(parsed)) {
-    const list = createDefaultList("マイTodo", parsed.filter((todo) => typeof todo.id === "string"));
+    const todos = parsed.filter((todo) => typeof todo.id === "string");
+    const list = createDefaultList("マイTodo", todos.length > 0 ? todos : [createDefaultTodo()]);
     return {
       selectedListId: list.id,
       lists: [list]
@@ -46,12 +47,16 @@ const normalizeState = (parsed) => {
 
   const lists = parsed.lists
     .filter((list) => typeof list.id === "string")
-    .map((list) => ({
-      id: list.id,
-      name: typeof list.name === "string" && list.name.trim() ? list.name : "無題のリスト",
-      todos: Array.isArray(list.todos) ? list.todos.filter((todo) => typeof todo.id === "string") : [],
-      createdAt: typeof list.createdAt === "string" ? list.createdAt : new Date().toISOString()
-    }));
+    .map((list) => {
+      const todos = Array.isArray(list.todos) ? list.todos.filter((todo) => typeof todo.id === "string") : [];
+
+      return {
+        id: list.id,
+        name: typeof list.name === "string" && list.name.trim() ? list.name : "無題のリスト",
+        todos: todos.length > 0 ? todos : [createDefaultTodo()],
+        createdAt: typeof list.createdAt === "string" ? list.createdAt : new Date().toISOString()
+      };
+    });
 
   if (lists.length === 0) {
     return createInitialState();
