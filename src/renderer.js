@@ -453,7 +453,7 @@ const renderTodos = () => {
     input.addEventListener("keydown", async (event) => {
       if (event.key === "Enter") {
         event.preventDefault();
-        await addTodoAfter(todo.id);
+        await addChildTodoToEnd(todo.id);
       }
     });
     requestAnimationFrame(() => resizeTodoText(input));
@@ -471,9 +471,9 @@ const renderTodos = () => {
     addButton.className = "icon-button";
     addButton.type = "button";
     addButton.textContent = "+";
-    addButton.title = "この下にTodoを追加";
-    addButton.setAttribute("aria-label", "この下にTodoを追加");
-    addButton.addEventListener("click", () => addTodoAfter(todo.id));
+    addButton.title = "子Todoを末尾に追加";
+    addButton.setAttribute("aria-label", "子Todoを末尾に追加");
+    addButton.addEventListener("click", () => addChildTodoToEnd(todo.id));
 
     const rowActions = document.createElement("div");
     rowActions.className = "row-actions";
@@ -503,10 +503,23 @@ const addTodoAt = async (index, parentId = null) => {
   focusTodoInput(todo.id);
 };
 
-const addTodoAfter = async (id) => {
+const getTodoSubtreeEndIndex = (todos, id) => {
+  const subtreeIds = new Set([id, ...getDescendantIds(todos, id)]);
+
+  for (var index = todos.length - 1; index >= 0; index -= 1) {
+    if (subtreeIds.has(todos[index].id)) {
+      return index;
+    }
+  }
+
+  return -1;
+};
+
+const addChildTodoToEnd = async (id) => {
   const todos = getCurrentList()?.todos ?? [];
-  const index = todos.findIndex((todo) => todo.id === id);
-  await addTodoAt(index < 0 ? todos.length : index + 1, index < 0 ? null : id);
+  const parentExists = todos.some((todo) => todo.id === id);
+  const index = parentExists ? getTodoSubtreeEndIndex(todos, id) + 1 : todos.length;
+  await addTodoAt(index, parentExists ? id : null);
 };
 
 const addRootTodoToEnd = async () => {
