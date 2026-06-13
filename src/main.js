@@ -3,10 +3,11 @@ const fs = require("node:fs/promises");
 const path = require("node:path");
 const { randomUUID } = require("node:crypto");
 
-const createDefaultTodo = (title = "") => ({
+const createDefaultTodo = (title = "", parentId = null) => ({
   id: randomUUID(),
   title,
   completed: false,
+  parentId,
   createdAt: new Date().toISOString()
 });
 
@@ -33,7 +34,7 @@ const getTodoFilePath = () => path.join(app.getPath("userData"), "todos.json");
 
 const normalizeState = (parsed) => {
   if (Array.isArray(parsed)) {
-    const todos = parsed.filter((todo) => typeof todo.id === "string");
+    const todos = normalizeTodos(parsed);
     const list = createDefaultList("マイTodo", todos.length > 0 ? todos : [createDefaultTodo()]);
     return {
       selectedListId: list.id,
@@ -48,7 +49,7 @@ const normalizeState = (parsed) => {
   const lists = parsed.lists
     .filter((list) => typeof list.id === "string")
     .map((list) => {
-      const todos = Array.isArray(list.todos) ? list.todos.filter((todo) => typeof todo.id === "string") : [];
+      const todos = Array.isArray(list.todos) ? normalizeTodos(list.todos) : [];
 
       return {
         id: list.id,
@@ -68,6 +69,24 @@ const normalizeState = (parsed) => {
     selectedListId: selectedListExists ? parsed.selectedListId : lists[0].id,
     lists
   };
+};
+
+const normalizeTodos = (todos) => {
+  const validTodos = todos
+    .filter((todo) => typeof todo.id === "string")
+    .map((todo) => ({
+      id: todo.id,
+      title: typeof todo.title === "string" ? todo.title : "",
+      completed: Boolean(todo.completed),
+      parentId: typeof todo.parentId === "string" ? todo.parentId : null,
+      createdAt: typeof todo.createdAt === "string" ? todo.createdAt : new Date().toISOString()
+    }));
+  const todoIds = new Set(validTodos.map((todo) => todo.id));
+
+  return validTodos.map((todo) => ({
+    ...todo,
+    parentId: todo.parentId && todoIds.has(todo.parentId) && todo.parentId !== todo.id ? todo.parentId : null
+  }));
 };
 
 const readState = async () => {

@@ -16,10 +16,11 @@ let state = {
 
 let draggedTodoId = "";
 
-const createTodo = () => ({
+const createTodo = (parentId = null) => ({
   id: crypto.randomUUID(),
   title: "",
   completed: false,
+  parentId,
   createdAt: new Date().toISOString()
 });
 
@@ -36,11 +37,34 @@ const saveTodos = async () => {
   await window.todoApi.saveTodos(state);
 };
 
-const getVisibleTodos = () => {
+const buildTodoTree = (todos) => {
+  const todoIds = new Set(todos.map((todo) => todo.id));
+  const childrenByParent = new Map();
+
+  todos.forEach((todo) => {
+    const parentId = todo.parentId && todoIds.has(todo.parentId) ? todo.parentId : null;
+    if (!childrenByParent.has(parentId)) {
+      childrenByParent.set(parentId, []);
+    }
+    childrenByParent.get(parentId).push(todo);
+  });
+
+  const walk = (parentId = null, depth = 0) => {
+    const children = childrenByParent.get(parentId) ?? [];
+    return children.flatMap((todo) => [
+      { todo, depth },
+      ...walk(todo.id, depth + 1)
+    ]);
+  };
+
+  return walk();
+};
+
+const getVisibleTodoEntries = () => {
   const currentList = getCurrentList();
   const todos = currentList?.todos ?? [];
 
-  return todos.filter((todo) => {
+  return buildTodoTree(todos).filter(({ todo }) => {
     if (todo.completed) {
       return showCompleted.checked;
     }
@@ -56,14 +80,42 @@ const updateSummary = () => {
   summaryText.textContent = `未完了 ${incompleteCount} / 完了 ${completedCount}`;
 };
 
+const getDescendantIds = (todos, id) => {
+  const descendantIds = new Set();
+  let changed = true;
+
+  while (changed) {
+    changed = false;
+    todos.forEach((todo) => {
+      if (!descendantIds.has(todo.id) && (todo.parentId === id || descendantIds.has(todo.parentId))) {
+        descendantIds.add(todo.id);
+        changed = true;
+      }
+    });
+  }
+
+  return descendantIds;
+};
+
+const getTodoSubtree = (todos, id) => {
+  const descendantIds = getDescendantIds(todos, id);
+  const subtreeIds = new Set([id, ...descendantIds]);
+  return todos.filter((todo) => subtreeIds.has(todo.id));
+};
+
 const removeTodoFromCurrentList = (id) => {
   const currentList = getCurrentList();
   if (!currentList || currentList.todos.length <= 1) {
     return false;
   }
 
+  const deleteIds = new Set([id, ...getDescendantIds(currentList.todos, id)]);
+  if (deleteIds.size >= currentList.todos.length) {
+    return false;
+  }
+
   const originalLength = currentList.todos.length;
-  currentList.todos = currentList.todos.filter((todo) => todo.id !== id);
+  currentList.todos = currentList.todos.filter((todo) => !deleteIds.has(todo.id));
   return currentList.todos.length !== originalLength;
 };
 
@@ -108,26 +160,32 @@ const renderTodos = () => {
   const currentList = getCurrentList();
   currentListTitle.value = currentList?.name ?? "Todoリストなし";
   todoList.innerHTML = "";
-  const visibleTodos = getVisibleTodos();
+  const visibleTodoEntries = getVisibleTodoEntries();
 
-  emptyMessage.hidden = visibleTodos.length > 0;
+  emptyMessage.hidden = visibleTodoEntries.length > 0;
 
-  visibleTodos.forEach((todo) => {
+  visibleTodoEntries.forEach(({ todo, depth }) => {
     const item = document.createElement("li");
     item.className = "todo-item";
     item.dataset.completed = String(todo.completed);
     item.dataset.todoId = todo.id;
+    item.dataset.depth = String(depth);
+    item.style.setProperty("--todo-depth", depth);
     item.addEventListener("dragover", (event) => {
       event.preventDefault();
-      item.dataset.dragOver = "true";
+      const rect = item.getBoundingClientRect();
+      const y = event.clientY - rect.top;
+      const mode = y < rect.height * 0.25 ? "before" : y > rect.height * 0.75 ? "after" : "child";
+      item.dataset.dragOver = mode;
     });
     item.addEventListener("dragleave", () => {
       delete item.dataset.dragOver;
     });
     item.addEventListener("drop", async (event) => {
       event.preventDefault();
+      const mode = item.dataset.dragOver || "after";
       delete item.dataset.dragOver;
-      await moveDraggedTodo(todo.id);
+      await moveDraggedTodo(todo.id, mode);
     });
 
     const dragHandle = document.createElement("button");
@@ -197,7 +255,7 @@ const renderTodos = () => {
     const deleteButton = document.createElement("button");
     deleteButton.className = "icon-button danger";
     deleteButton.type = "button";
-    deleteButton.disabled = (currentList?.todos.length ?? 0) <= 1;
+    deleteButton.disabled = getTodoSubtree(currentList?.todos ?? [], todo.id).length >= (currentList?.todos.length ?? 0);
     deleteButton.textContent = "-";
     deleteButton.title = "このTodoを削除";
     deleteButton.setAttribute("aria-label", "このTodoを削除");
@@ -227,13 +285,13 @@ const render = () => {
   renderTodos();
 };
 
-const addTodoAt = async (index) => {
+const addTodoAt = async (index, parentId = null) => {
   const currentList = getCurrentList();
   if (!currentList) {
     return;
   }
 
-  const todo = createTodo();
+  const todo = createTodo(parentId);
   currentList.todos.splice(index, 0, todo);
   render();
   focusTodoInput(todo.id);
@@ -242,10 +300,10 @@ const addTodoAt = async (index) => {
 const addTodoAfter = async (id) => {
   const todos = getCurrentList()?.todos ?? [];
   const index = todos.findIndex((todo) => todo.id === id);
-  await addTodoAt(index < 0 ? todos.length : index + 1);
+  await addTodoAt(index < 0 ? todos.length : index + 1, index < 0 ? null : id);
 };
 
-const moveDraggedTodo = async (targetId) => {
+const moveDraggedTodo = async (targetId, mode) => {
   if (!draggedTodoId || draggedTodoId === targetId) {
     return;
   }
@@ -255,14 +313,34 @@ const moveDraggedTodo = async (targetId) => {
     return;
   }
 
-  const fromIndex = currentList.todos.findIndex((todo) => todo.id === draggedTodoId);
-  const toIndex = currentList.todos.findIndex((todo) => todo.id === targetId);
-  if (fromIndex < 0 || toIndex < 0) {
+  const movedTodo = currentList.todos.find((todo) => todo.id === draggedTodoId);
+  const targetTodo = currentList.todos.find((todo) => todo.id === targetId);
+  if (!movedTodo || !targetTodo) {
     return;
   }
 
-  const [movedTodo] = currentList.todos.splice(fromIndex, 1);
-  currentList.todos.splice(toIndex, 0, movedTodo);
+  const descendantIds = getDescendantIds(currentList.todos, movedTodo.id);
+  if (descendantIds.has(targetTodo.id)) {
+    return;
+  }
+
+  const subtree = getTodoSubtree(currentList.todos, movedTodo.id);
+  const subtreeIds = new Set(subtree.map((todo) => todo.id));
+  const remainingTodos = currentList.todos.filter((todo) => !subtreeIds.has(todo.id));
+  const targetIndex = remainingTodos.findIndex((todo) => todo.id === targetId);
+  if (targetIndex < 0) {
+    return;
+  }
+
+  if (mode === "child") {
+    movedTodo.parentId = targetTodo.id;
+    remainingTodos.splice(targetIndex + 1, 0, ...subtree);
+  } else {
+    movedTodo.parentId = targetTodo.parentId ?? null;
+    remainingTodos.splice(mode === "before" ? targetIndex : targetIndex + 1, 0, ...subtree);
+  }
+
+  currentList.todos = remainingTodos;
   await saveTodos();
   render();
 };
@@ -302,7 +380,7 @@ const deleteCurrentList = async () => {
   render();
 };
 
-addTopButton.addEventListener("click", () => addTodoAt(0));
+addTopButton.addEventListener("click", () => addTodoAt(0, null));
 addListButton.addEventListener("click", addTodoList);
 deleteListButton.addEventListener("click", deleteCurrentList);
 currentListTitle.addEventListener("input", () => {
