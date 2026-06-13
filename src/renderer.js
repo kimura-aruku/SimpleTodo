@@ -54,6 +54,17 @@ const updateSummary = () => {
   summaryText.textContent = `未完了 ${incompleteCount} / 完了 ${completedCount}`;
 };
 
+const removeTodoFromCurrentList = (id) => {
+  const currentList = getCurrentList();
+  if (!currentList) {
+    return false;
+  }
+
+  const originalLength = currentList.todos.length;
+  currentList.todos = currentList.todos.filter((todo) => todo.id !== id);
+  return currentList.todos.length !== originalLength;
+};
+
 const resizeTodoText = (textarea) => {
   textarea.style.height = "0px";
   textarea.style.height = `${textarea.scrollHeight}px`;
@@ -126,7 +137,17 @@ const renderTodos = () => {
       resizeTodoText(input);
       updateSummary();
     });
-    input.addEventListener("blur", saveTodos);
+    input.addEventListener("blur", async () => {
+      if (todo.title.trim()) {
+        await saveTodos();
+        return;
+      }
+
+      if (removeTodoFromCurrentList(todo.id)) {
+        await saveTodos();
+        render();
+      }
+    });
     input.addEventListener("keydown", async (event) => {
       if (event.key === "Enter") {
         event.preventDefault();
@@ -175,7 +196,6 @@ const addTodoAt = async (index) => {
 
   const todo = createTodo();
   currentList.todos.splice(index, 0, todo);
-  await saveTodos();
   render();
   focusTodoInput(todo.id);
 };
@@ -192,9 +212,10 @@ const deleteTodo = async (id) => {
     return;
   }
 
-  currentList.todos = currentList.todos.filter((todo) => todo.id !== id);
-  await saveTodos();
-  render();
+  if (removeTodoFromCurrentList(id)) {
+    await saveTodos();
+    render();
+  }
 };
 
 const addTodoList = async () => {
