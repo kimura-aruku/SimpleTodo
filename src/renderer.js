@@ -217,7 +217,8 @@ const renderDropPreview = (intent) => {
   const preview = document.createElement("li");
   preview.className = "drop-preview";
   preview.style.setProperty("--todo-depth", intent.depth);
-  preview.textContent = `ここに移動（階層 ${intent.depth + 1}）`;
+  const draggedTodo = getCurrentList()?.todos.find((todo) => todo.id === draggedTodoId);
+  preview.textContent = draggedTodo?.title.trim() || "無題のTodo";
 
   if (intent.placement === "before") {
     referenceItem.before(preview);

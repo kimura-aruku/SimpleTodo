@@ -203,7 +203,7 @@ textarea {
 }
 
 .todo-item[data-dragging="true"] {
-  opacity: 0.55;
+  visibility: hidden;
 }
 
 .drop-preview {
