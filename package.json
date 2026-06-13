@@ -15,11 +15,13 @@
       "output": "dist"
     },
     "files": [
+      "assets/**/*",
       "src/**/*",
       "package.json"
     ],
     "win": {
-      "target": "dir"
+      "target": "dir",
+      "icon": "assets/checkBox.ico"
     }
   },
   "devDependencies": {
