@@ -203,7 +203,10 @@ textarea {
 }
 
 .todo-item[data-dragging="true"] {
-  display: none;
+  position: absolute;
+  width: 100%;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .drag-image-ghost {

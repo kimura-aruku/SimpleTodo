@@ -25,6 +25,10 @@ const logClientError = (source, error) => {
   window.todoApi.logError({ source, message }).catch(() => {});
 };
 
+const logClientDebug = (source, detail) => {
+  window.todoApi.logError({ source, message: typeof detail === "string" ? detail : JSON.stringify(detail) }).catch(() => {});
+};
+
 window.addEventListener("error", (event) => {
   logClientError("renderer:error", event.error ?? event.message);
 });
@@ -374,8 +378,17 @@ const renderTodos = () => {
       document.body.append(dragImageElement);
       event.dataTransfer.setDragImage(dragImageElement, 18, 18);
       item.dataset.dragging = "true";
+      logClientDebug("renderer:dragstart", {
+        draggedTodoId,
+        title: todo.title,
+        depth
+      });
     });
     dragHandle.addEventListener("dragend", () => {
+      logClientDebug("renderer:dragend", {
+        draggedTodoId,
+        hadPreview: Boolean(dragPreview)
+      });
       draggedTodoId = "";
       delete item.dataset.dragging;
       clearDragImage();
@@ -534,6 +547,13 @@ const moveDraggedTodo = async (intent) => {
 
   currentList.todos = remainingTodos;
   await saveTodos();
+  logClientDebug("renderer:moveSucceeded", {
+    movedTodoId: movedTodo.id,
+    parentId: movedTodo.parentId,
+    referenceId: intent.referenceId,
+    placement: intent.placement,
+    depth: intent.depth
+  });
   render();
 };
 
@@ -599,6 +619,12 @@ todoList.addEventListener("drop", async (event) => {
   event.preventDefault();
   try {
     const intent = dragPreview;
+    logClientDebug("renderer:drop", {
+      draggedTodoId,
+      intent,
+      clientX: event.clientX,
+      clientY: event.clientY
+    });
     clearDropPreview();
     if (!intent) {
       logClientError("renderer:dropWithoutIntent", `clientX=${event.clientX}, clientY=${event.clientY}, draggedTodoId=${draggedTodoId}`);
