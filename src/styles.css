@@ -208,6 +208,7 @@ textarea {
   place-items: center;
   width: 38px;
   height: 38px;
+  padding: 0 0 3px;
   border: 1px solid #c8d1dc;
   border-radius: 8px;
   color: #1f4f42;
@@ -215,6 +216,15 @@ textarea {
   cursor: pointer;
   font-size: 22px;
   line-height: 1;
+}
+
+.todo-check {
+  align-self: center;
+  margin: 0;
+}
+
+.row-actions {
+  align-self: center;
 }
 
 .icon-button:hover {
@@ -228,16 +238,18 @@ textarea {
 }
 
 .icon-button.primary {
-  color: #ffffff;
-  border-color: #226f54;
-  background: #226f54;
+  color: #1f4f42;
+  border-color: #c8d1dc;
+  background: #ffffff;
 }
 
 .icon-button.primary:hover {
-  background: #1b5d46;
+  border-color: #226f54;
+  background: #edf7f3;
 }
 
 .icon-button.danger {
+  padding-bottom: 4px;
   color: #ffffff;
   border-color: #c93636;
   background: #d64545;
