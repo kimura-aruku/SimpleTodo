@@ -120,21 +120,30 @@ const getAncestorEntryAtDepth = (entries, id, depth) => {
   return entry && entry.depth === depth ? entry : null;
 };
 
-const getLastDescendantId = (entries, id) => {
-  const index = entries.findIndex((entry) => entry.todo.id === id);
-  if (index < 0) {
-    return id;
+const getParentIdForDepth = (entries, referenceEntry, depth) => {
+  if (depth <= 0) {
+    return null;
   }
 
-  let lastEntry = entries[index];
-  for (let i = index + 1; i < entries.length; i += 1) {
-    if (entries[i].depth <= entries[index].depth) {
-      break;
-    }
-    lastEntry = entries[i];
+  if (depth === referenceEntry.depth + 1) {
+    return referenceEntry.todo.id;
   }
 
-  return lastEntry.todo.id;
+  const parentDepth = depth - 1;
+  const parentEntry = referenceEntry.depth === parentDepth
+    ? referenceEntry
+    : getAncestorEntryAtDepth(entries, referenceEntry.todo.id, parentDepth);
+
+  return parentEntry?.todo.id ?? null;
+};
+
+const getReferenceForAfterDrop = (entries, referenceEntry, depth) => {
+  if (depth < referenceEntry.depth) {
+    const ancestorEntry = getAncestorEntryAtDepth(entries, referenceEntry.todo.id, depth);
+    return ancestorEntry?.todo.id ?? referenceEntry.todo.id;
+  }
+
+  return referenceEntry.todo.id;
 };
 
 const getDropIntent = (targetId, event, item) => {
@@ -158,56 +167,23 @@ const getDropIntent = (targetId, event, item) => {
   const listRect = todoList.getBoundingClientRect();
   const targetRect = item.getBoundingClientRect();
   const y = event.clientY - targetRect.top;
-  const verticalMode = y < targetRect.height * 0.3 ? "before" : y > targetRect.height * 0.7 ? "after" : "inside";
+  const verticalMode = y < targetRect.height * 0.35 ? "before" : "after";
   const requestedDepth = Math.max(0, Math.floor((event.clientX - listRect.left) / indentWidth));
-  let depth = Math.min(requestedDepth, targetEntry.depth + 1);
-  let parentId = null;
-  let referenceId = targetId;
-  let placement = "after";
+  const maxDepth = verticalMode === "before" ? targetEntry.depth : targetEntry.depth + 1;
+  const depth = Math.min(requestedDepth, maxDepth);
+  const parentId = getParentIdForDepth(entries, targetEntry, depth);
+  const referenceId = verticalMode === "before"
+    ? targetEntry.todo.id
+    : getReferenceForAfterDrop(entries, targetEntry, depth);
 
-  if (verticalMode === "inside" && depth > targetEntry.depth) {
-    depth = targetEntry.depth + 1;
-    parentId = targetId;
-    referenceId = targetId;
-    placement = "after";
-  } else if (verticalMode === "before") {
-    depth = Math.min(depth, targetEntry.depth);
-    const ancestorEntry = depth < targetEntry.depth ? getAncestorEntryAtDepth(entries, targetId, depth) : targetEntry;
-    if (!ancestorEntry) {
-      return null;
-    }
-    parentId = ancestorEntry.todo.parentId ?? null;
-    referenceId = ancestorEntry.todo.id;
-    placement = "before";
-  } else {
-    depth = Math.min(depth, targetEntry.depth);
-    const ancestorEntry = depth < targetEntry.depth ? getAncestorEntryAtDepth(entries, targetId, depth) : targetEntry;
-    if (!ancestorEntry) {
-      return null;
-    }
-    parentId = ancestorEntry.todo.parentId ?? null;
-
-    const subtreeIds = new Set(getTodoSubtree(currentList.todos, draggedTodoId).map((todo) => todo.id));
-    const remainingEntries = entries.filter((entry) => !subtreeIds.has(entry.todo.id));
-    referenceId = getLastDescendantId(remainingEntries, ancestorEntry.todo.id);
-    placement = "after";
-  }
-
-  if (draggedTodoId === referenceId && placement === "after") {
-    const ancestorEntry = getAncestorEntryAtDepth(entries, draggedTodoId, depth);
-    if (!ancestorEntry) {
-      return null;
-    }
-    const subtreeIds = new Set(getTodoSubtree(currentList.todos, draggedTodoId).map((todo) => todo.id));
-    const remainingEntries = entries.filter((entry) => !subtreeIds.has(entry.todo.id));
-    referenceId = getLastDescendantId(remainingEntries, ancestorEntry.todo.id);
-    parentId = ancestorEntry.todo.parentId ?? null;
+  if (draggedTodoId === referenceId) {
+    return null;
   }
 
   return {
     depth,
     parentId,
-    placement,
+    placement: verticalMode,
     referenceId,
     targetId
   };
@@ -324,7 +300,7 @@ const renderTodos = () => {
       if (!intent) {
         return;
       }
-      item.dataset.dragOver = intent.placement === "before" ? "before" : intent.parentId === todo.id ? "child" : "after";
+      item.dataset.dragOver = intent.placement;
       renderDropPreview(intent);
     });
     item.addEventListener("dragleave", () => {
@@ -466,14 +442,24 @@ const moveDraggedTodo = async (intent) => {
     return;
   }
 
+  const movedEntry = getTodoEntry(getFullTodoEntries(), draggedTodoId);
+  const oldParentId = movedTodo.parentId ?? null;
+
   const descendantIds = getDescendantIds(currentList.todos, movedTodo.id);
-  if (descendantIds.has(intent.referenceId) || descendantIds.has(intent.parentId)) {
+  const isOutdenting = movedEntry && intent.depth < movedEntry.depth;
+  if ((!isOutdenting && descendantIds.has(intent.referenceId)) || descendantIds.has(intent.parentId)) {
     return;
   }
 
-  const subtree = getTodoSubtree(currentList.todos, movedTodo.id);
-  const subtreeIds = new Set(subtree.map((todo) => todo.id));
-  const remainingTodos = currentList.todos.filter((todo) => !subtreeIds.has(todo.id));
+  if (movedEntry && intent.depth < movedEntry.depth) {
+    currentList.todos.forEach((todo) => {
+      if (todo.parentId === movedTodo.id) {
+        todo.parentId = oldParentId;
+      }
+    });
+  }
+
+  const remainingTodos = currentList.todos.filter((todo) => todo.id !== movedTodo.id);
   const referenceIndex = remainingTodos.findIndex((todo) => todo.id === intent.referenceId);
   if (referenceIndex < 0) {
     return;
