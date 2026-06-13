@@ -179,7 +179,8 @@ textarea {
   align-items: start;
   gap: 10px;
   min-height: 52px;
-  padding: 8px 10px 8px calc(10px + var(--todo-depth, 0) * 28px);
+  margin-left: calc(var(--todo-depth, 0) * 28px);
+  padding: 8px 10px;
   border: 1px solid #d7dde5;
   border-radius: 8px;
   background: #ffffff;
@@ -209,7 +210,8 @@ textarea {
   display: grid;
   align-items: center;
   min-height: 38px;
-  padding: 7px 12px 7px calc(12px + var(--todo-depth, 0) * 28px);
+  margin-left: calc(var(--todo-depth, 0) * 28px);
+  padding: 7px 12px;
   border: 1px dashed #226f54;
   border-radius: 8px;
   color: #174b3b;
@@ -352,6 +354,7 @@ textarea {
   .todo-item {
     grid-template-columns: 26px 26px minmax(0, 1fr) auto;
     gap: 8px;
-    padding: 8px 8px 8px calc(8px + var(--todo-depth, 0) * 24px);
+    margin-left: calc(var(--todo-depth, 0) * 24px);
+    padding: 8px;
   }
 }

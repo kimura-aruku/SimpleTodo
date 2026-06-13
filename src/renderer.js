@@ -226,6 +226,49 @@ const renderDropPreview = (intent) => {
   }
 };
 
+const getTodoItemAtY = (clientY) => {
+  const items = [...todoList.querySelectorAll(".todo-item")];
+  if (items.length === 0) {
+    return null;
+  }
+
+  return items.find((item) => {
+    const rect = item.getBoundingClientRect();
+    return clientY >= rect.top && clientY <= rect.bottom;
+  }) ?? items.reduce((nearestItem, item) => {
+    const nearestRect = nearestItem.getBoundingClientRect();
+    const itemRect = item.getBoundingClientRect();
+    const nearestDistance = Math.min(Math.abs(clientY - nearestRect.top), Math.abs(clientY - nearestRect.bottom));
+    const itemDistance = Math.min(Math.abs(clientY - itemRect.top), Math.abs(clientY - itemRect.bottom));
+    return itemDistance < nearestDistance ? item : nearestItem;
+  });
+};
+
+const updateDropPreviewFromEvent = (event) => {
+  if (!draggedTodoId) {
+    return null;
+  }
+
+  const item = getTodoItemAtY(event.clientY);
+  if (!item) {
+    return null;
+  }
+
+  const intent = getDropIntent(item.dataset.todoId, event, item);
+  document.querySelectorAll("[data-drag-over]").forEach((element) => {
+    delete element.dataset.dragOver;
+  });
+
+  if (!intent) {
+    document.querySelector(".drop-preview")?.remove();
+    return null;
+  }
+
+  item.dataset.dragOver = intent.placement;
+  renderDropPreview(intent);
+  return intent;
+};
+
 const removeTodoFromCurrentList = (id) => {
   const currentList = getCurrentList();
   if (!currentList || currentList.todos.length <= 1) {
@@ -294,25 +337,6 @@ const renderTodos = () => {
     item.dataset.todoId = todo.id;
     item.dataset.depth = String(depth);
     item.style.setProperty("--todo-depth", depth);
-    item.addEventListener("dragover", (event) => {
-      event.preventDefault();
-      const intent = getDropIntent(todo.id, event, item);
-      if (!intent) {
-        return;
-      }
-      item.dataset.dragOver = intent.placement;
-      renderDropPreview(intent);
-    });
-    item.addEventListener("dragleave", () => {
-      delete item.dataset.dragOver;
-    });
-    item.addEventListener("drop", async (event) => {
-      event.preventDefault();
-      const intent = getDropIntent(todo.id, event, item);
-      delete item.dataset.dragOver;
-      clearDropPreview();
-      await moveDraggedTodo(intent);
-    });
 
     const dragHandle = document.createElement("button");
     dragHandle.className = "drag-handle";
@@ -466,7 +490,7 @@ const moveDraggedTodo = async (intent) => {
   }
 
   movedTodo.parentId = intent.parentId;
-  remainingTodos.splice(intent.placement === "before" ? referenceIndex : referenceIndex + 1, 0, ...subtree);
+  remainingTodos.splice(intent.placement === "before" ? referenceIndex : referenceIndex + 1, 0, movedTodo);
 
   currentList.todos = remainingTodos;
   await saveTodos();
@@ -523,6 +547,16 @@ currentListTitle.addEventListener("input", () => {
 currentListTitle.addEventListener("blur", saveTodos);
 showIncomplete.addEventListener("change", render);
 showCompleted.addEventListener("change", render);
+todoList.addEventListener("dragover", (event) => {
+  event.preventDefault();
+  updateDropPreviewFromEvent(event);
+});
+todoList.addEventListener("drop", async (event) => {
+  event.preventDefault();
+  const intent = updateDropPreviewFromEvent(event);
+  clearDropPreview();
+  await moveDraggedTodo(intent);
+});
 
 const boot = async () => {
   state = await window.todoApi.loadTodos();
