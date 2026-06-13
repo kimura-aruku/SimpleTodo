@@ -3,6 +3,30 @@ const fs = require("node:fs/promises");
 const path = require("node:path");
 const { randomUUID } = require("node:crypto");
 
+const getLogFilePath = () => path.join(app.getPath("userData"), "last-error.log");
+
+const formatLogEntry = (source, error) => {
+  const message = error instanceof Error ? error.stack || error.message : String(error);
+  return `[${new Date().toISOString()}] [${source}]\n${message}\n\n`;
+};
+
+const resetLogFile = async () => {
+  await fs.mkdir(path.dirname(getLogFilePath()), { recursive: true });
+  await fs.writeFile(getLogFilePath(), "", "utf8");
+};
+
+const writeLog = async (source, error) => {
+  await fs.appendFile(getLogFilePath(), formatLogEntry(source, error), "utf8");
+};
+
+process.on("uncaughtException", (error) => {
+  writeLog("main:uncaughtException", error).catch(() => {});
+});
+
+process.on("unhandledRejection", (reason) => {
+  writeLog("main:unhandledRejection", reason).catch(() => {});
+});
+
 const createDefaultTodo = (title = "", parentId = null) => ({
   id: randomUUID(),
   title,
@@ -139,7 +163,12 @@ ipcMain.handle("todos:save", async (_event, state) => {
   return state;
 });
 
-app.whenReady().then(() => {
+ipcMain.handle("log:error", async (_event, payload) => {
+  await writeLog(payload?.source ?? "renderer", payload?.message ?? payload);
+});
+
+app.whenReady().then(async () => {
+  await resetLogFile();
   createWindow();
 
   app.on("activate", () => {

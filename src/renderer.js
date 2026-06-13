@@ -19,6 +19,19 @@ let dragPreview = null;
 
 const indentWidth = 28;
 
+const logClientError = (source, error) => {
+  const message = error instanceof Error ? error.stack || error.message : String(error);
+  window.todoApi.logError({ source, message }).catch(() => {});
+};
+
+window.addEventListener("error", (event) => {
+  logClientError("renderer:error", event.error ?? event.message);
+});
+
+window.addEventListener("unhandledrejection", (event) => {
+  logClientError("renderer:unhandledrejection", event.reason);
+});
+
 const createTodo = (parentId = null) => ({
   id: crypto.randomUUID(),
   title: "",
@@ -228,7 +241,7 @@ const renderDropPreview = (intent) => {
 };
 
 const getTodoItemAtY = (clientY) => {
-  const items = [...todoList.querySelectorAll(".todo-item")];
+  const items = [...todoList.querySelectorAll(".todo-item:not([data-dragging='true'])")];
   if (items.length === 0) {
     return null;
   }
@@ -566,5 +579,6 @@ const boot = async () => {
 
 boot().catch((error) => {
   summaryText.textContent = "読み込みに失敗しました";
+  logClientError("renderer:boot", error);
   console.error(error);
 });
