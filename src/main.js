@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require("electron");
+const { app, BrowserWindow, Menu, ipcMain } = require("electron");
 const fs = require("node:fs/promises");
 const path = require("node:path");
 const { randomUUID } = require("node:crypto");
@@ -10,38 +10,87 @@ const createDefaultTodo = (title = "") => ({
   createdAt: new Date().toISOString()
 });
 
+const createDefaultList = (name = "マイTodo", todos = []) => ({
+  id: randomUUID(),
+  name,
+  todos,
+  createdAt: new Date().toISOString()
+});
+
+const createInitialState = () => {
+  const list = createDefaultList("マイTodo", [
+    createDefaultTodo("Todoを追加してみる"),
+    createDefaultTodo("チェックを入れて完了にする")
+  ]);
+
+  return {
+    selectedListId: list.id,
+    lists: [list]
+  };
+};
+
 const getTodoFilePath = () => path.join(app.getPath("userData"), "todos.json");
 
-const readTodos = async () => {
+const normalizeState = (parsed) => {
+  if (Array.isArray(parsed)) {
+    const list = createDefaultList("マイTodo", parsed.filter((todo) => typeof todo.id === "string"));
+    return {
+      selectedListId: list.id,
+      lists: [list]
+    };
+  }
+
+  if (!parsed || !Array.isArray(parsed.lists)) {
+    return createInitialState();
+  }
+
+  const lists = parsed.lists
+    .filter((list) => typeof list.id === "string")
+    .map((list) => ({
+      id: list.id,
+      name: typeof list.name === "string" && list.name.trim() ? list.name : "無題のリスト",
+      todos: Array.isArray(list.todos) ? list.todos.filter((todo) => typeof todo.id === "string") : [],
+      createdAt: typeof list.createdAt === "string" ? list.createdAt : new Date().toISOString()
+    }));
+
+  if (lists.length === 0) {
+    return createInitialState();
+  }
+
+  const selectedListExists = lists.some((list) => list.id === parsed.selectedListId);
+
+  return {
+    selectedListId: selectedListExists ? parsed.selectedListId : lists[0].id,
+    lists
+  };
+};
+
+const readState = async () => {
   try {
     const content = await fs.readFile(getTodoFilePath(), "utf8");
     const parsed = JSON.parse(content);
-
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
-
-    return parsed.filter((todo) => typeof todo.id === "string");
+    const state = normalizeState(parsed);
+    await writeState(state);
+    return state;
   } catch (error) {
     if (error.code === "ENOENT") {
-      const initialTodos = [
-        createDefaultTodo("Todoを追加してみる"),
-        createDefaultTodo("チェックを入れて完了にする")
-      ];
-      await writeTodos(initialTodos);
-      return initialTodos;
+      const initialState = createInitialState();
+      await writeState(initialState);
+      return initialState;
     }
 
     throw error;
   }
 };
 
-const writeTodos = async (todos) => {
+const writeState = async (state) => {
   await fs.mkdir(path.dirname(getTodoFilePath()), { recursive: true });
-  await fs.writeFile(getTodoFilePath(), JSON.stringify(todos, null, 2), "utf8");
+  await fs.writeFile(getTodoFilePath(), JSON.stringify(normalizeState(state), null, 2), "utf8");
 };
 
 const createWindow = () => {
+  Menu.setApplicationMenu(null);
+
   const mainWindow = new BrowserWindow({
     width: 900,
     height: 680,
@@ -59,11 +108,11 @@ const createWindow = () => {
   mainWindow.loadFile(path.join(__dirname, "index.html"));
 };
 
-ipcMain.handle("todos:load", async () => readTodos());
+ipcMain.handle("todos:load", async () => readState());
 
-ipcMain.handle("todos:save", async (_event, todos) => {
-  await writeTodos(todos);
-  return todos;
+ipcMain.handle("todos:save", async (_event, state) => {
+  await writeState(state);
+  return state;
 });
 
 app.whenReady().then(() => {

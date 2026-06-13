@@ -10,19 +10,92 @@
 
 body {
   min-width: 360px;
+  min-height: 100vh;
   margin: 0;
   background: #f6f7f9;
 }
 
 button,
-input {
+input,
+textarea {
   font: inherit;
 }
 
 .app-shell {
-  width: min(860px, calc(100vw - 32px));
+  display: grid;
+  grid-template-columns: minmax(180px, 20%) 1fr;
+  gap: 22px;
+  width: min(1100px, calc(100vw - 32px));
+  min-height: 100vh;
   margin: 0 auto;
   padding: 28px 0;
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border-right: 1px solid #dce1e7;
+  padding-right: 16px;
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 48px;
+  margin-bottom: 14px;
+}
+
+.sidebar-header h2 {
+  margin: 0;
+  color: #3c424b;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.list-actions,
+.row-actions {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+}
+
+.list-nav {
+  display: grid;
+  gap: 6px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.list-nav-button {
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 10px;
+  overflow-wrap: anywhere;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: #333942;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.list-nav-button:hover {
+  background: #edf2f6;
+}
+
+.list-nav-button[data-active="true"] {
+  border-color: #bfd2c9;
+  color: #174b3b;
+  background: #e8f3ee;
+}
+
+.content-pane {
+  min-width: 0;
 }
 
 .app-header {
@@ -33,11 +106,23 @@ input {
   margin-bottom: 18px;
 }
 
-.app-header h1 {
+.list-title-field {
+  display: block;
+  width: min(520px, 100%);
   margin: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  color: #22252a;
+  background: transparent;
   font-size: 28px;
   font-weight: 700;
   letter-spacing: 0;
+  text-overflow: ellipsis;
+}
+
+.list-title-field:focus {
+  box-shadow: 0 2px 0 #226f54;
 }
 
 .app-header p {
@@ -84,8 +169,8 @@ input {
 
 .todo-item {
   display: grid;
-  grid-template-columns: 28px 1fr 38px;
-  align-items: center;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  align-items: start;
   gap: 10px;
   min-height: 52px;
   padding: 8px 10px;
@@ -97,10 +182,16 @@ input {
 .todo-title {
   width: 100%;
   min-width: 0;
+  min-height: 34px;
+  resize: none;
+  overflow: hidden;
+  padding: 6px 0;
   border: 0;
   outline: 0;
   color: #20242a;
   background: transparent;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
 }
 
 .todo-title:focus {
@@ -131,6 +222,11 @@ input {
   background: #edf7f3;
 }
 
+.icon-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .icon-button.primary {
   color: #ffffff;
   border-color: #226f54;
@@ -141,6 +237,16 @@ input {
   background: #1b5d46;
 }
 
+.icon-button.danger {
+  color: #ffffff;
+  border-color: #c93636;
+  background: #d64545;
+}
+
+.icon-button.danger:hover {
+  background: #bf3030;
+}
+
 .empty-message {
   margin: 52px 0;
   color: #7a838f;
@@ -149,16 +255,23 @@ input {
 
 @media (max-width: 560px) {
   .app-shell {
+    grid-template-columns: 1fr;
     width: calc(100vw - 20px);
     padding: 18px 0;
   }
 
-  .app-header h1 {
+  .sidebar {
+    border-right: 0;
+    border-bottom: 1px solid #dce1e7;
+    padding: 0 0 14px;
+  }
+
+  .list-title-field {
     font-size: 23px;
   }
 
   .todo-item {
-    grid-template-columns: 26px 1fr 36px;
+    grid-template-columns: 26px minmax(0, 1fr) auto;
     gap: 8px;
     padding: 8px;
   }
