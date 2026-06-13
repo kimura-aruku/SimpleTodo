@@ -209,15 +209,6 @@ textarea {
   pointer-events: none;
 }
 
-.drag-image-ghost {
-  position: fixed;
-  top: -1000px;
-  left: -1000px;
-  width: 320px;
-  pointer-events: none;
-  opacity: 0.85;
-}
-
 .drop-preview {
   display: grid;
   align-items: center;
@@ -267,6 +258,8 @@ textarea {
   color: #78818c;
   background: transparent;
   cursor: grab;
+  touch-action: none;
+  user-select: none;
 }
 
 .drag-handle::before {

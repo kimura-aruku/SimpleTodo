@@ -16,7 +16,7 @@ let state = {
 
 let draggedTodoId = "";
 let dragPreview = null;
-let dragImageElement = null;
+let draggedItemElement = null;
 
 const indentWidth = 28;
 
@@ -217,11 +217,6 @@ const clearDropPreview = () => {
   document.querySelector(".drop-preview")?.remove();
 };
 
-const clearDragImage = () => {
-  dragImageElement?.remove();
-  dragImageElement = null;
-};
-
 const renderDropPreview = (intent) => {
   document.querySelector(".drop-preview")?.remove();
   if (!intent) {
@@ -291,6 +286,56 @@ const updateDropPreviewFromEvent = (event) => {
   item.dataset.dragOver = intent.placement;
   renderDropPreview(intent);
   return intent;
+};
+
+const startTodoDrag = (todo, depth, item, event) => {
+  event.preventDefault();
+  draggedTodoId = todo.id;
+  draggedItemElement = item;
+  item.dataset.dragging = "true";
+  todoList.dataset.draggingActive = "true";
+  logClientDebug("renderer:pointerDragStart", {
+    draggedTodoId,
+    title: todo.title,
+    depth
+  });
+};
+
+const updateTodoDrag = (event) => {
+  if (!draggedTodoId) {
+    return;
+  }
+
+  try {
+    updateDropPreviewFromEvent(event);
+  } catch (error) {
+    logClientError("renderer:pointerDragMove", error);
+  }
+};
+
+const finishTodoDrag = async (event) => {
+  if (!draggedTodoId) {
+    return;
+  }
+
+  try {
+    updateDropPreviewFromEvent(event);
+    const intent = dragPreview;
+    logClientDebug("renderer:pointerDragEnd", {
+      draggedTodoId,
+      intent,
+      clientX: event.clientX,
+      clientY: event.clientY
+    });
+    clearDropPreview();
+    await moveDraggedTodo(intent);
+  } catch (error) {
+    logClientError("renderer:pointerDragEnd", error);
+  } finally {
+    draggedItemElement?.removeAttribute("data-dragging");
+    draggedItemElement = null;
+    draggedTodoId = "";
+  }
 };
 
 const removeTodoFromCurrentList = (id) => {
@@ -365,35 +410,9 @@ const renderTodos = () => {
     const dragHandle = document.createElement("button");
     dragHandle.className = "drag-handle";
     dragHandle.type = "button";
-    dragHandle.draggable = true;
     dragHandle.title = "ドラッグして並び替え";
     dragHandle.setAttribute("aria-label", "ドラッグしてTodoを並び替え");
-    dragHandle.addEventListener("dragstart", (event) => {
-      draggedTodoId = todo.id;
-      event.dataTransfer.effectAllowed = "move";
-      event.dataTransfer.setData("text/plain", todo.id);
-      clearDragImage();
-      dragImageElement = item.cloneNode(true);
-      dragImageElement.className = "todo-item drag-image-ghost";
-      document.body.append(dragImageElement);
-      event.dataTransfer.setDragImage(dragImageElement, 18, 18);
-      item.dataset.dragging = "true";
-      logClientDebug("renderer:dragstart", {
-        draggedTodoId,
-        title: todo.title,
-        depth
-      });
-    });
-    dragHandle.addEventListener("dragend", () => {
-      logClientDebug("renderer:dragend", {
-        draggedTodoId,
-        hadPreview: Boolean(dragPreview)
-      });
-      draggedTodoId = "";
-      delete item.dataset.dragging;
-      clearDragImage();
-      clearDropPreview();
-    });
+    dragHandle.addEventListener("pointerdown", (event) => startTodoDrag(todo, depth, item, event));
 
     const checkbox = document.createElement("input");
     checkbox.className = "todo-check";
@@ -607,34 +626,9 @@ currentListTitle.addEventListener("input", () => {
 currentListTitle.addEventListener("blur", saveTodos);
 showIncomplete.addEventListener("change", render);
 showCompleted.addEventListener("change", render);
-todoList.addEventListener("dragover", (event) => {
-  event.preventDefault();
-  try {
-    updateDropPreviewFromEvent(event);
-  } catch (error) {
-    logClientError("renderer:dragover", error);
-  }
-});
-todoList.addEventListener("drop", async (event) => {
-  event.preventDefault();
-  try {
-    const intent = dragPreview;
-    logClientDebug("renderer:drop", {
-      draggedTodoId,
-      intent,
-      clientX: event.clientX,
-      clientY: event.clientY
-    });
-    clearDropPreview();
-    if (!intent) {
-      logClientError("renderer:dropWithoutIntent", `clientX=${event.clientX}, clientY=${event.clientY}, draggedTodoId=${draggedTodoId}`);
-    }
-    await moveDraggedTodo(intent);
-    clearDragImage();
-  } catch (error) {
-    logClientError("renderer:drop", error);
-  }
-});
+window.addEventListener("pointermove", updateTodoDrag);
+window.addEventListener("pointerup", finishTodoDrag);
+window.addEventListener("pointercancel", finishTodoDrag);
 
 const boot = async () => {
   state = await window.todoApi.loadTodos();

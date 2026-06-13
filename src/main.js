@@ -13,9 +13,26 @@ const getProjectRootPath = () => {
 
 const getLogFilePath = () => path.join(getProjectRootPath(), "logs", "last-error.log");
 
+const formatJstTimestamp = () => {
+  const parts = new Intl.DateTimeFormat("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  const millisecond = String(new Date().getMilliseconds()).padStart(3, "0");
+
+  return `${values.year}/${values.month}/${values.day} ${values.hour}:${values.minute}:${values.second}.${millisecond} JST`;
+};
+
 const formatLogEntry = (source, error) => {
   const message = error instanceof Error ? error.stack || error.message : String(error);
-  return `[${new Date().toISOString()}] [${source}]\n${message}\n\n`;
+  return `[${formatJstTimestamp()}] [${source}]\n${message}\n\n`;
 };
 
 const resetLogFile = async () => {
