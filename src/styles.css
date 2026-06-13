@@ -1,0 +1,165 @@
+:root {
+  color: #22252a;
+  font-family: "Yu Gothic UI", "Meiryo", system-ui, sans-serif;
+  background: #f6f7f9;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-width: 360px;
+  margin: 0;
+  background: #f6f7f9;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+.app-shell {
+  width: min(860px, calc(100vw - 32px));
+  margin: 0 auto;
+  padding: 28px 0;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.app-header p {
+  margin: 6px 0 0;
+  color: #68707c;
+  font-size: 14px;
+}
+
+.filter-bar {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  margin-bottom: 14px;
+  padding: 10px 0;
+  border-bottom: 1px solid #dce1e7;
+}
+
+.filter-bar label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #3c424b;
+  user-select: none;
+}
+
+.filter-bar input,
+.todo-check {
+  width: 18px;
+  height: 18px;
+  accent-color: #226f54;
+}
+
+.todo-panel {
+  min-height: 280px;
+}
+
+.todo-list {
+  display: grid;
+  gap: 8px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.todo-item {
+  display: grid;
+  grid-template-columns: 28px 1fr 38px;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 8px 10px;
+  border: 1px solid #d7dde5;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.todo-title {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  color: #20242a;
+  background: transparent;
+}
+
+.todo-title:focus {
+  box-shadow: 0 2px 0 #226f54;
+}
+
+.todo-item[data-completed="true"] .todo-title {
+  color: #8a929d;
+  text-decoration: line-through;
+}
+
+.icon-button {
+  display: inline-grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid #c8d1dc;
+  border-radius: 8px;
+  color: #1f4f42;
+  background: #ffffff;
+  cursor: pointer;
+  font-size: 22px;
+  line-height: 1;
+}
+
+.icon-button:hover {
+  border-color: #226f54;
+  background: #edf7f3;
+}
+
+.icon-button.primary {
+  color: #ffffff;
+  border-color: #226f54;
+  background: #226f54;
+}
+
+.icon-button.primary:hover {
+  background: #1b5d46;
+}
+
+.empty-message {
+  margin: 52px 0;
+  color: #7a838f;
+  text-align: center;
+}
+
+@media (max-width: 560px) {
+  .app-shell {
+    width: calc(100vw - 20px);
+    padding: 18px 0;
+  }
+
+  .app-header h1 {
+    font-size: 23px;
+  }
+
+  .todo-item {
+    grid-template-columns: 26px 1fr 36px;
+    gap: 8px;
+    padding: 8px;
+  }
+}

@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Simple Todo</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="app-header">
+        <div>
+          <h1>Simple Todo</h1>
+          <p id="summaryText">読み込み中</p>
+        </div>
+        <button class="icon-button primary" id="addTopButton" type="button" aria-label="先頭にTodoを追加" title="先頭にTodoを追加">
+          +
+        </button>
+      </header>
+
+      <section class="filter-bar" aria-label="表示フィルタ">
+        <label>
+          <input id="showIncomplete" type="checkbox" checked />
+          未完了
+        </label>
+        <label>
+          <input id="showCompleted" type="checkbox" checked />
+          完了
+        </label>
+      </section>
+
+      <section class="todo-panel" aria-label="Todo一覧">
+        <ul class="todo-list" id="todoList"></ul>
+        <p class="empty-message" id="emptyMessage" hidden>表示できるTodoがありません</p>
+      </section>
+    </main>
+
+    <script src="./renderer.js"></script>
+  </body>
+</html>

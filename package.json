@@ -1,0 +1,29 @@
+{
+  "name": "simple-todo",
+  "version": "0.1.0",
+  "productName": "SimpleTodo",
+  "description": "A simple desktop todo app.",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "check": "node --check src/main.js && node --check src/preload.js && node --check src/renderer.js",
+    "build": "electron-builder --win dir"
+  },
+  "build": {
+    "appId": "local.simpletodo",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": "dir"
+    }
+  },
+  "devDependencies": {
+    "electron": "^42.4.0",
+    "electron-builder": "^26.0.12"
+  }
+}
