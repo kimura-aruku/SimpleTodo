@@ -54,4 +54,6 @@ TodoデータはElectronの `app.getPath("userData")` 配下に `todos.json` と
 - 保存データの読み書き時に、各Todoリストが必ず1つ以上のTodoを持つよう正規化する。
 - Todoの親子関係は `parentId` で表現する。`parentId: null` のTodoはルートTodoとして扱う。
 - Todoの描画は保存配列から親子ツリーを組み立て、深さに応じてインデントする。
-- Todoの並び替えと親子関係変更はHTML Drag and Drop APIを使い、ドロップ位置に応じて `parentId` とリスト内配列を更新して保存する。
+- Todoの並び替えと親子関係変更はHTML Drag and Drop APIを使い、ドロップ位置の縦方向で前後、横方向で階層を判定する。
+- ドラッグ中はDOM上に挿入プレビュー行を追加し、同時に階層判定用の点線ガイドを表示する。
+- ドロップ時は判定済みの挿入プレビュー情報を使って `parentId` とリスト内配列を更新して保存する。

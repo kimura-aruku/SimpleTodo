@@ -15,6 +15,9 @@ let state = {
 };
 
 let draggedTodoId = "";
+let dragPreview = null;
+
+const indentWidth = 28;
 
 const createTodo = (parentId = null) => ({
   id: crypto.randomUUID(),
@@ -103,6 +106,150 @@ const getTodoSubtree = (todos, id) => {
   return todos.filter((todo) => subtreeIds.has(todo.id));
 };
 
+const getFullTodoEntries = () => buildTodoTree(getCurrentList()?.todos ?? []);
+
+const getTodoEntry = (entries, id) => entries.find((entry) => entry.todo.id === id);
+
+const getAncestorEntryAtDepth = (entries, id, depth) => {
+  let entry = getTodoEntry(entries, id);
+
+  while (entry && entry.depth > depth) {
+    entry = getTodoEntry(entries, entry.todo.parentId);
+  }
+
+  return entry && entry.depth === depth ? entry : null;
+};
+
+const getLastDescendantId = (entries, id) => {
+  const index = entries.findIndex((entry) => entry.todo.id === id);
+  if (index < 0) {
+    return id;
+  }
+
+  let lastEntry = entries[index];
+  for (let i = index + 1; i < entries.length; i += 1) {
+    if (entries[i].depth <= entries[index].depth) {
+      break;
+    }
+    lastEntry = entries[i];
+  }
+
+  return lastEntry.todo.id;
+};
+
+const getDropIntent = (targetId, event, item) => {
+  const currentList = getCurrentList();
+  if (!currentList || !draggedTodoId || draggedTodoId === "") {
+    return null;
+  }
+
+  const entries = getFullTodoEntries();
+  const movedEntry = getTodoEntry(entries, draggedTodoId);
+  const targetEntry = getTodoEntry(entries, targetId);
+  if (!movedEntry || !targetEntry) {
+    return null;
+  }
+
+  const descendantIds = getDescendantIds(currentList.todos, draggedTodoId);
+  if (descendantIds.has(targetId)) {
+    return null;
+  }
+
+  const listRect = todoList.getBoundingClientRect();
+  const targetRect = item.getBoundingClientRect();
+  const y = event.clientY - targetRect.top;
+  const verticalMode = y < targetRect.height * 0.3 ? "before" : y > targetRect.height * 0.7 ? "after" : "inside";
+  const requestedDepth = Math.max(0, Math.floor((event.clientX - listRect.left) / indentWidth));
+  let depth = Math.min(requestedDepth, targetEntry.depth + 1);
+  let parentId = null;
+  let referenceId = targetId;
+  let placement = "after";
+
+  if (verticalMode === "inside" && depth > targetEntry.depth) {
+    depth = targetEntry.depth + 1;
+    parentId = targetId;
+    referenceId = targetId;
+    placement = "after";
+  } else if (verticalMode === "before") {
+    depth = Math.min(depth, targetEntry.depth);
+    const ancestorEntry = depth < targetEntry.depth ? getAncestorEntryAtDepth(entries, targetId, depth) : targetEntry;
+    if (!ancestorEntry) {
+      return null;
+    }
+    parentId = ancestorEntry.todo.parentId ?? null;
+    referenceId = ancestorEntry.todo.id;
+    placement = "before";
+  } else {
+    depth = Math.min(depth, targetEntry.depth);
+    const ancestorEntry = depth < targetEntry.depth ? getAncestorEntryAtDepth(entries, targetId, depth) : targetEntry;
+    if (!ancestorEntry) {
+      return null;
+    }
+    parentId = ancestorEntry.todo.parentId ?? null;
+
+    const subtreeIds = new Set(getTodoSubtree(currentList.todos, draggedTodoId).map((todo) => todo.id));
+    const remainingEntries = entries.filter((entry) => !subtreeIds.has(entry.todo.id));
+    referenceId = getLastDescendantId(remainingEntries, ancestorEntry.todo.id);
+    placement = "after";
+  }
+
+  if (draggedTodoId === referenceId && placement === "after") {
+    const ancestorEntry = getAncestorEntryAtDepth(entries, draggedTodoId, depth);
+    if (!ancestorEntry) {
+      return null;
+    }
+    const subtreeIds = new Set(getTodoSubtree(currentList.todos, draggedTodoId).map((todo) => todo.id));
+    const remainingEntries = entries.filter((entry) => !subtreeIds.has(entry.todo.id));
+    referenceId = getLastDescendantId(remainingEntries, ancestorEntry.todo.id);
+    parentId = ancestorEntry.todo.parentId ?? null;
+  }
+
+  return {
+    depth,
+    parentId,
+    placement,
+    referenceId,
+    targetId
+  };
+};
+
+const clearDropPreview = () => {
+  dragPreview = null;
+  todoList.removeAttribute("data-dragging-active");
+  todoList.style.removeProperty("--preview-depth");
+  document.querySelectorAll("[data-drag-over]").forEach((element) => {
+    delete element.dataset.dragOver;
+  });
+  document.querySelector(".drop-preview")?.remove();
+};
+
+const renderDropPreview = (intent) => {
+  document.querySelector(".drop-preview")?.remove();
+  if (!intent) {
+    return;
+  }
+
+  dragPreview = intent;
+  todoList.dataset.draggingActive = "true";
+  todoList.style.setProperty("--preview-depth", intent.depth);
+
+  const referenceItem = document.querySelector(`[data-todo-id="${intent.referenceId}"]`);
+  if (!referenceItem) {
+    return;
+  }
+
+  const preview = document.createElement("li");
+  preview.className = "drop-preview";
+  preview.style.setProperty("--todo-depth", intent.depth);
+  preview.textContent = `ここに移動（階層 ${intent.depth + 1}）`;
+
+  if (intent.placement === "before") {
+    referenceItem.before(preview);
+  } else {
+    referenceItem.after(preview);
+  }
+};
+
 const removeTodoFromCurrentList = (id) => {
   const currentList = getCurrentList();
   if (!currentList || currentList.todos.length <= 1) {
@@ -173,19 +320,22 @@ const renderTodos = () => {
     item.style.setProperty("--todo-depth", depth);
     item.addEventListener("dragover", (event) => {
       event.preventDefault();
-      const rect = item.getBoundingClientRect();
-      const y = event.clientY - rect.top;
-      const mode = y < rect.height * 0.25 ? "before" : y > rect.height * 0.75 ? "after" : "child";
-      item.dataset.dragOver = mode;
+      const intent = getDropIntent(todo.id, event, item);
+      if (!intent) {
+        return;
+      }
+      item.dataset.dragOver = intent.placement === "before" ? "before" : intent.parentId === todo.id ? "child" : "after";
+      renderDropPreview(intent);
     });
     item.addEventListener("dragleave", () => {
       delete item.dataset.dragOver;
     });
     item.addEventListener("drop", async (event) => {
       event.preventDefault();
-      const mode = item.dataset.dragOver || "after";
+      const intent = getDropIntent(todo.id, event, item);
       delete item.dataset.dragOver;
-      await moveDraggedTodo(todo.id, mode);
+      clearDropPreview();
+      await moveDraggedTodo(intent);
     });
 
     const dragHandle = document.createElement("button");
@@ -203,9 +353,7 @@ const renderTodos = () => {
     dragHandle.addEventListener("dragend", () => {
       draggedTodoId = "";
       delete item.dataset.dragging;
-      document.querySelectorAll("[data-drag-over]").forEach((element) => {
-        delete element.dataset.dragOver;
-      });
+      clearDropPreview();
     });
 
     const checkbox = document.createElement("input");
@@ -303,8 +451,8 @@ const addTodoAfter = async (id) => {
   await addTodoAt(index < 0 ? todos.length : index + 1, index < 0 ? null : id);
 };
 
-const moveDraggedTodo = async (targetId, mode) => {
-  if (!draggedTodoId || draggedTodoId === targetId) {
+const moveDraggedTodo = async (intent) => {
+  if (!draggedTodoId || !intent) {
     return;
   }
 
@@ -314,31 +462,25 @@ const moveDraggedTodo = async (targetId, mode) => {
   }
 
   const movedTodo = currentList.todos.find((todo) => todo.id === draggedTodoId);
-  const targetTodo = currentList.todos.find((todo) => todo.id === targetId);
-  if (!movedTodo || !targetTodo) {
+  if (!movedTodo) {
     return;
   }
 
   const descendantIds = getDescendantIds(currentList.todos, movedTodo.id);
-  if (descendantIds.has(targetTodo.id)) {
+  if (descendantIds.has(intent.referenceId) || descendantIds.has(intent.parentId)) {
     return;
   }
 
   const subtree = getTodoSubtree(currentList.todos, movedTodo.id);
   const subtreeIds = new Set(subtree.map((todo) => todo.id));
   const remainingTodos = currentList.todos.filter((todo) => !subtreeIds.has(todo.id));
-  const targetIndex = remainingTodos.findIndex((todo) => todo.id === targetId);
-  if (targetIndex < 0) {
+  const referenceIndex = remainingTodos.findIndex((todo) => todo.id === intent.referenceId);
+  if (referenceIndex < 0) {
     return;
   }
 
-  if (mode === "child") {
-    movedTodo.parentId = targetTodo.id;
-    remainingTodos.splice(targetIndex + 1, 0, ...subtree);
-  } else {
-    movedTodo.parentId = targetTodo.parentId ?? null;
-    remainingTodos.splice(mode === "before" ? targetIndex : targetIndex + 1, 0, ...subtree);
-  }
+  movedTodo.parentId = intent.parentId;
+  remainingTodos.splice(intent.placement === "before" ? referenceIndex : referenceIndex + 1, 0, ...subtree);
 
   currentList.todos = remainingTodos;
   await saveTodos();

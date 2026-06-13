@@ -165,6 +165,12 @@ textarea {
   padding: 0;
   margin: 0;
   list-style: none;
+  position: relative;
+}
+
+.todo-list[data-dragging-active="true"] {
+  background-image: radial-gradient(circle at 27px 4px, rgba(34, 111, 84, 0.35) 1.4px, transparent 1.6px);
+  background-size: 28px 8px;
 }
 
 .todo-item {
@@ -198,6 +204,19 @@ textarea {
 
 .todo-item[data-dragging="true"] {
   opacity: 0.55;
+}
+
+.drop-preview {
+  display: grid;
+  align-items: center;
+  min-height: 38px;
+  margin-left: calc(var(--todo-depth, 0) * 28px);
+  padding: 7px 12px;
+  border: 1px dashed #226f54;
+  border-radius: 8px;
+  color: #174b3b;
+  background: #e8f3ee;
+  font-size: 13px;
 }
 
 .todo-title {
