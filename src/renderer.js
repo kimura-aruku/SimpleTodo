@@ -16,6 +16,7 @@ let state = {
 
 let draggedTodoId = "";
 let dragPreview = null;
+let dragImageElement = null;
 
 const indentWidth = 28;
 
@@ -212,6 +213,11 @@ const clearDropPreview = () => {
   document.querySelector(".drop-preview")?.remove();
 };
 
+const clearDragImage = () => {
+  dragImageElement?.remove();
+  dragImageElement = null;
+};
+
 const renderDropPreview = (intent) => {
   document.querySelector(".drop-preview")?.remove();
   if (!intent) {
@@ -362,11 +368,17 @@ const renderTodos = () => {
       draggedTodoId = todo.id;
       event.dataTransfer.effectAllowed = "move";
       event.dataTransfer.setData("text/plain", todo.id);
+      clearDragImage();
+      dragImageElement = item.cloneNode(true);
+      dragImageElement.className = "todo-item drag-image-ghost";
+      document.body.append(dragImageElement);
+      event.dataTransfer.setDragImage(dragImageElement, 18, 18);
       item.dataset.dragging = "true";
     });
     dragHandle.addEventListener("dragend", () => {
       draggedTodoId = "";
       delete item.dataset.dragging;
+      clearDragImage();
       clearDropPreview();
     });
 
@@ -586,12 +598,13 @@ todoList.addEventListener("dragover", (event) => {
 todoList.addEventListener("drop", async (event) => {
   event.preventDefault();
   try {
-    const intent = updateDropPreviewFromEvent(event);
+    const intent = dragPreview;
     clearDropPreview();
     if (!intent) {
       logClientError("renderer:dropWithoutIntent", `clientX=${event.clientX}, clientY=${event.clientY}, draggedTodoId=${draggedTodoId}`);
     }
     await moveDraggedTodo(intent);
+    clearDragImage();
   } catch (error) {
     logClientError("renderer:drop", error);
   }
