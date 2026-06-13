@@ -509,6 +509,11 @@ const addTodoAfter = async (id) => {
   await addTodoAt(index < 0 ? todos.length : index + 1, index < 0 ? null : id);
 };
 
+const addRootTodoToEnd = async () => {
+  const todos = getCurrentList()?.todos ?? [];
+  await addTodoAt(todos.length, null);
+};
+
 const moveDraggedTodo = async (intent) => {
   if (!draggedTodoId || !intent) {
     logClientError("renderer:moveSkipped", `draggedTodoId=${draggedTodoId || "(empty)"}, intent=${JSON.stringify(intent)}`);
@@ -611,7 +616,7 @@ const deleteCurrentList = async () => {
   render();
 };
 
-addTopButton.addEventListener("click", () => addTodoAt(0, null));
+addTopButton.addEventListener("click", addRootTodoToEnd);
 addListButton.addEventListener("click", addTodoList);
 deleteListButton.addEventListener("click", deleteCurrentList);
 currentListTitle.addEventListener("input", () => {
