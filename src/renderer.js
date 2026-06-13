@@ -467,16 +467,19 @@ const addTodoAfter = async (id) => {
 
 const moveDraggedTodo = async (intent) => {
   if (!draggedTodoId || !intent) {
+    logClientError("renderer:moveSkipped", `draggedTodoId=${draggedTodoId || "(empty)"}, intent=${JSON.stringify(intent)}`);
     return;
   }
 
   const currentList = getCurrentList();
   if (!currentList) {
+    logClientError("renderer:moveSkipped", "currentList is missing");
     return;
   }
 
   const movedTodo = currentList.todos.find((todo) => todo.id === draggedTodoId);
   if (!movedTodo) {
+    logClientError("renderer:moveSkipped", `movedTodo is missing: ${draggedTodoId}`);
     return;
   }
 
@@ -486,6 +489,12 @@ const moveDraggedTodo = async (intent) => {
   const descendantIds = getDescendantIds(currentList.todos, movedTodo.id);
   const isOutdenting = movedEntry && intent.depth < movedEntry.depth;
   if ((!isOutdenting && descendantIds.has(intent.referenceId)) || descendantIds.has(intent.parentId)) {
+    logClientError("renderer:moveBlocked", JSON.stringify({
+      draggedTodoId,
+      intent,
+      isOutdenting,
+      reason: "descendant-reference"
+    }));
     return;
   }
 
@@ -500,6 +509,11 @@ const moveDraggedTodo = async (intent) => {
   const remainingTodos = currentList.todos.filter((todo) => todo.id !== movedTodo.id);
   const referenceIndex = remainingTodos.findIndex((todo) => todo.id === intent.referenceId);
   if (referenceIndex < 0) {
+    logClientError("renderer:moveSkipped", JSON.stringify({
+      draggedTodoId,
+      intent,
+      reason: "reference-not-found"
+    }));
     return;
   }
 
@@ -563,13 +577,24 @@ showIncomplete.addEventListener("change", render);
 showCompleted.addEventListener("change", render);
 todoList.addEventListener("dragover", (event) => {
   event.preventDefault();
-  updateDropPreviewFromEvent(event);
+  try {
+    updateDropPreviewFromEvent(event);
+  } catch (error) {
+    logClientError("renderer:dragover", error);
+  }
 });
 todoList.addEventListener("drop", async (event) => {
   event.preventDefault();
-  const intent = updateDropPreviewFromEvent(event);
-  clearDropPreview();
-  await moveDraggedTodo(intent);
+  try {
+    const intent = updateDropPreviewFromEvent(event);
+    clearDropPreview();
+    if (!intent) {
+      logClientError("renderer:dropWithoutIntent", `clientX=${event.clientX}, clientY=${event.clientY}, draggedTodoId=${draggedTodoId}`);
+    }
+    await moveDraggedTodo(intent);
+  } catch (error) {
+    logClientError("renderer:drop", error);
+  }
 });
 
 const boot = async () => {

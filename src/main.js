@@ -3,7 +3,15 @@ const fs = require("node:fs/promises");
 const path = require("node:path");
 const { randomUUID } = require("node:crypto");
 
-const getLogFilePath = () => path.join(app.getPath("userData"), "last-error.log");
+const getProjectRootPath = () => {
+  if (app.isPackaged) {
+    return path.resolve(path.dirname(app.getPath("exe")), "..", "..");
+  }
+
+  return app.getAppPath();
+};
+
+const getLogFilePath = () => path.join(getProjectRootPath(), "logs", "last-error.log");
 
 const formatLogEntry = (source, error) => {
   const message = error instanceof Error ? error.stack || error.message : String(error);
