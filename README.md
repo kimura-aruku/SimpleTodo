@@ -113,3 +113,9 @@ npm run build
 - HTML
 - CSS
 - JavaScript
+
+## ライセンス
+
+このソフトウェアは[MIT License](LICENSE)のもとで公開されています。
+
+Electron、Chromiumその他の依存コンポーネントには、それぞれのライセンスが適用されます。Windows向けビルドにはElectronおよびChromiumのライセンス文書が同梱されます。

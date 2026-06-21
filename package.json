@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "productName": "SimpleTodo",
   "description": "A simple desktop todo app.",
+  "license": "MIT",
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
@@ -18,6 +19,9 @@
       "assets/**/*",
       "src/**/*",
       "package.json"
+    ],
+    "extraFiles": [
+      "LICENSE"
     ],
     "win": {
       "target": "dir",
