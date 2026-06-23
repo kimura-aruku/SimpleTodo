@@ -18,8 +18,13 @@ let draggedTodoId = "";
 let dragPreview = null;
 let draggedItemElement = null;
 const movedEmptyTodoIds = new Set();
+const undoStack = [];
+const editSnapshots = new Map();
+let activeEditKey = "";
+let activeEditInitialValue = "";
 
 const indentWidth = 28;
+const maxUndoEntries = 100;
 
 const logClientError = (source, error) => {
   const message = error instanceof Error ? error.stack || error.message : String(error);
@@ -54,6 +59,76 @@ const createTodoList = () => ({
 });
 
 const getCurrentList = () => state.lists.find((list) => list.id === state.selectedListId) ?? state.lists[0];
+
+const cloneState = (targetState = state) => JSON.parse(JSON.stringify(targetState));
+
+const statesAreEqual = (firstState, secondState) => JSON.stringify(firstState) === JSON.stringify(secondState);
+
+const pushUndoSnapshot = (snapshot) => {
+  if (!snapshot) {
+    return;
+  }
+
+  const previousSnapshot = undoStack.at(-1);
+  if (previousSnapshot && statesAreEqual(previousSnapshot, snapshot)) {
+    return;
+  }
+
+  undoStack.push(cloneState(snapshot));
+  if (undoStack.length > maxUndoEntries) {
+    undoStack.shift();
+  }
+};
+
+const captureEditSnapshot = (key) => {
+  editSnapshots.set(key, cloneState());
+};
+
+const beginEdit = (key, element) => {
+  activeEditKey = key;
+  activeEditInitialValue = element.value;
+  captureEditSnapshot(key);
+};
+
+const commitEditSnapshot = (key) => {
+  const snapshot = editSnapshots.get(key);
+  editSnapshots.delete(key);
+  if (activeEditKey === key) {
+    activeEditKey = "";
+    activeEditInitialValue = "";
+  }
+  if (!snapshot || statesAreEqual(snapshot, state)) {
+    return;
+  }
+
+  const previousSnapshot = undoStack.at(-1);
+  if (previousSnapshot && statesAreEqual(previousSnapshot, state)) {
+    return;
+  }
+
+  pushUndoSnapshot(snapshot);
+};
+
+const undoLastAction = async () => {
+  const snapshot = undoStack.pop();
+  if (!snapshot) {
+    return;
+  }
+
+  clearDropPreview();
+  draggedItemElement?.removeAttribute("data-dragging");
+  draggedItemElement = null;
+  draggedTodoId = "";
+  movedEmptyTodoIds.clear();
+  editSnapshots.clear();
+  state = cloneState(snapshot);
+  await saveTodos();
+  render();
+};
+
+const isEditableElement = (element) => element instanceof HTMLInputElement
+  || element instanceof HTMLTextAreaElement
+  || element?.isContentEditable;
 
 const saveTodos = async () => {
   await window.todoApi.saveTodos(state);
@@ -421,6 +496,7 @@ const renderTodos = () => {
     checkbox.checked = todo.completed;
     checkbox.setAttribute("aria-label", "Todoを完了にする");
     checkbox.addEventListener("change", async () => {
+      pushUndoSnapshot(cloneState());
       todo.completed = checkbox.checked;
       await saveTodos();
       render();
@@ -432,6 +508,7 @@ const renderTodos = () => {
     input.placeholder = "Todoを入力";
     input.rows = 1;
     input.dataset.titleInput = todo.id;
+    input.addEventListener("focus", () => beginEdit(`todo:${todo.id}`, input));
     input.addEventListener("input", () => {
       todo.title = input.value;
       if (todo.title.trim()) {
@@ -442,6 +519,7 @@ const renderTodos = () => {
     });
     input.addEventListener("blur", async () => {
       if (todo.title.trim()) {
+        commitEditSnapshot(`todo:${todo.id}`);
         await saveTodos();
         return;
       }
@@ -451,16 +529,19 @@ const renderTodos = () => {
       }
 
       if (movedEmptyTodoIds.has(todo.id)) {
+        commitEditSnapshot(`todo:${todo.id}`);
         await saveTodos();
         return;
       }
 
       if (removeTodoFromCurrentList(todo.id)) {
+        commitEditSnapshot(`todo:${todo.id}`);
         await saveTodos();
         render();
         return;
       }
 
+      commitEditSnapshot(`todo:${todo.id}`);
       await saveTodos();
     });
     input.addEventListener("keydown", async (event) => {
@@ -510,6 +591,7 @@ const addTodoAt = async (index, parentId = null) => {
     return;
   }
 
+  pushUndoSnapshot(cloneState());
   const todo = createTodo(parentId);
   currentList.todos.splice(index, 0, todo);
   render();
@@ -560,6 +642,7 @@ const moveDraggedTodo = async (intent) => {
 
   const movedEntry = getTodoEntry(getFullTodoEntries(), draggedTodoId);
   const oldParentId = movedTodo.parentId ?? null;
+  const undoSnapshot = cloneState();
 
   const descendantIds = getDescendantIds(currentList.todos, movedTodo.id);
   const isOutdenting = movedEntry && intent.depth < movedEntry.depth;
@@ -573,6 +656,7 @@ const moveDraggedTodo = async (intent) => {
     return;
   }
 
+  pushUndoSnapshot(undoSnapshot);
   if (movedEntry && intent.depth < movedEntry.depth) {
     currentList.todos.forEach((todo) => {
       if (todo.parentId === movedTodo.id) {
@@ -616,13 +700,16 @@ const deleteTodo = async (id) => {
     return;
   }
 
+  const undoSnapshot = cloneState();
   if (removeTodoFromCurrentList(id)) {
+    pushUndoSnapshot(undoSnapshot);
     await saveTodos();
     render();
   }
 };
 
 const addTodoList = async () => {
+  pushUndoSnapshot(cloneState());
   const list = createTodoList();
   state.lists.push(list);
   state.selectedListId = list.id;
@@ -637,6 +724,7 @@ const deleteCurrentList = async () => {
     return;
   }
 
+  pushUndoSnapshot(cloneState());
   const currentIndex = state.lists.findIndex((list) => list.id === state.selectedListId);
   state.lists = state.lists.filter((list) => list.id !== state.selectedListId);
   const nextIndex = Math.max(0, currentIndex - 1);
@@ -648,6 +736,7 @@ const deleteCurrentList = async () => {
 addTopButton.addEventListener("click", addRootTodoToEnd);
 addListButton.addEventListener("click", addTodoList);
 deleteListButton.addEventListener("click", deleteCurrentList);
+currentListTitle.addEventListener("focus", () => beginEdit("current-list-title", currentListTitle));
 currentListTitle.addEventListener("input", () => {
   const currentList = getCurrentList();
   if (!currentList) {
@@ -657,9 +746,26 @@ currentListTitle.addEventListener("input", () => {
   currentList.name = currentListTitle.value.trim() || "無題のリスト";
   renderSidebar();
 });
-currentListTitle.addEventListener("blur", saveTodos);
+currentListTitle.addEventListener("blur", async () => {
+  commitEditSnapshot("current-list-title");
+  await saveTodos();
+});
 showIncomplete.addEventListener("change", render);
 showCompleted.addEventListener("change", render);
+window.addEventListener("keydown", (event) => {
+  if (event.key.toLowerCase() !== "z" || !event.ctrlKey || event.shiftKey || event.altKey || event.metaKey) {
+    return;
+  }
+
+  if (isEditableElement(document.activeElement)) {
+    if (document.activeElement.value !== activeEditInitialValue) {
+      return;
+    }
+  }
+
+  event.preventDefault();
+  undoLastAction().catch((error) => logClientError("renderer:undo", error));
+});
 window.addEventListener("pointermove", updateTodoDrag);
 window.addEventListener("pointerup", finishTodoDrag);
 window.addEventListener("pointercancel", finishTodoDrag);
