@@ -56,6 +56,8 @@ const createDefaultTodo = (title = "", parentId = null) => ({
   id: randomUUID(),
   title,
   completed: false,
+  dueDate: "",
+  effort: "",
   parentId,
   createdAt: new Date().toISOString()
 });
@@ -121,12 +123,16 @@ const normalizeState = (parsed) => {
 };
 
 const normalizeTodos = (todos) => {
+  const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+  const effortPattern = /^\d*(?:\.\d*)?$/;
   const validTodos = todos
     .filter((todo) => typeof todo.id === "string")
     .map((todo) => ({
       id: todo.id,
       title: typeof todo.title === "string" ? todo.title : "",
       completed: Boolean(todo.completed),
+      dueDate: typeof todo.dueDate === "string" && (todo.dueDate === "" || datePattern.test(todo.dueDate)) ? todo.dueDate : "",
+      effort: typeof todo.effort === "string" && effortPattern.test(todo.effort) ? todo.effort : "",
       parentId: typeof todo.parentId === "string" ? todo.parentId : null,
       createdAt: typeof todo.createdAt === "string" ? todo.createdAt : new Date().toISOString()
     }));

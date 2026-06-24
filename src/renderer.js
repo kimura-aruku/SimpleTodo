@@ -6,6 +6,7 @@ const currentListTitle = document.querySelector("#currentListTitle");
 const addListButton = document.querySelector("#addListButton");
 const deleteListButton = document.querySelector("#deleteListButton");
 const addTopButton = document.querySelector("#addTopButton");
+const detailModeSelect = document.querySelector("#detailModeSelect");
 const showIncomplete = document.querySelector("#showIncomplete");
 const showCompleted = document.querySelector("#showCompleted");
 
@@ -25,6 +26,41 @@ let activeEditInitialValue = "";
 
 const indentWidth = 28;
 const maxUndoEntries = 100;
+const todayIsoDate = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+};
+
+const sanitizeEffortValue = (value) => {
+  const cleaned = value.replace(/[^0-9.]/g, "");
+  const [integerPart, ...decimalParts] = cleaned.split(".");
+  if (decimalParts.length === 0) {
+    return integerPart;
+  }
+
+  return `${integerPart}.${decimalParts.join("")}`;
+};
+
+const parseEffortValue = (value) => {
+  if (typeof value !== "string" || !value.trim() || value === ".") {
+    return 0;
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const formatEffortTotal = (value) => {
+  if (!Number.isFinite(value)) {
+    return "0";
+  }
+
+  return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(2)));
+};
 
 const logClientError = (source, error) => {
   const message = error instanceof Error ? error.stack || error.message : String(error);
@@ -47,6 +83,8 @@ const createTodo = (parentId = null) => ({
   id: crypto.randomUUID(),
   title: "",
   completed: false,
+  dueDate: "",
+  effort: "",
   parentId,
   createdAt: new Date().toISOString()
 });
@@ -172,9 +210,18 @@ const getVisibleTodoEntries = () => {
 
 const updateSummary = () => {
   const todos = getCurrentList()?.todos ?? [];
-  const completedCount = todos.filter((todo) => todo.completed).length;
+  const completedTodos = todos.filter((todo) => todo.completed);
+  const incompleteTodos = todos.filter((todo) => !todo.completed);
+  const completedCount = completedTodos.length;
   const incompleteCount = todos.length - completedCount;
-  summaryText.textContent = `未完了 ${incompleteCount} / 完了 ${completedCount}`;
+  if (detailModeSelect.value !== "effort") {
+    summaryText.textContent = `未完了 ${incompleteCount} / 完了 ${completedCount}`;
+    return;
+  }
+
+  const incompleteEffort = incompleteTodos.reduce((total, todo) => total + parseEffortValue(todo.effort), 0);
+  const completedEffort = completedTodos.reduce((total, todo) => total + parseEffortValue(todo.effort), 0);
+  summaryText.textContent = `未完了 ${incompleteCount}（工数 ${formatEffortTotal(incompleteEffort)}） / 完了 ${completedCount}（工数 ${formatEffortTotal(completedEffort)}）`;
 };
 
 const getDescendantIds = (todos, id) => {
@@ -552,6 +599,54 @@ const renderTodos = () => {
     });
     requestAnimationFrame(() => resizeTodoText(input));
 
+    const detailField = document.createElement("div");
+    detailField.className = "todo-detail-field";
+    if (detailModeSelect.value === "deadline") {
+      const dueDateInput = document.createElement("input");
+      dueDateInput.className = "todo-date";
+      dueDateInput.type = "date";
+      dueDateInput.value = typeof todo.dueDate === "string" ? todo.dueDate : "";
+      dueDateInput.min = "1900-01-01";
+      dueDateInput.placeholder = todayIsoDate();
+      dueDateInput.setAttribute("aria-label", "締切日");
+      dueDateInput.addEventListener("focus", () => beginEdit(`due-date:${todo.id}`, dueDateInput));
+      dueDateInput.addEventListener("change", async () => {
+        todo.dueDate = dueDateInput.value;
+        commitEditSnapshot(`due-date:${todo.id}`);
+        await saveTodos();
+      });
+      dueDateInput.addEventListener("blur", async () => {
+        todo.dueDate = dueDateInput.value;
+        commitEditSnapshot(`due-date:${todo.id}`);
+        await saveTodos();
+      });
+      detailField.append(dueDateInput);
+    } else if (detailModeSelect.value === "effort") {
+      const effortInput = document.createElement("input");
+      effortInput.className = "todo-effort";
+      effortInput.type = "text";
+      effortInput.inputMode = "decimal";
+      effortInput.value = typeof todo.effort === "string" ? todo.effort : "";
+      effortInput.placeholder = "工数";
+      effortInput.setAttribute("aria-label", "工数");
+      effortInput.addEventListener("focus", () => beginEdit(`effort:${todo.id}`, effortInput));
+      effortInput.addEventListener("input", () => {
+        const sanitizedValue = sanitizeEffortValue(effortInput.value);
+        if (effortInput.value !== sanitizedValue) {
+          effortInput.value = sanitizedValue;
+        }
+        todo.effort = sanitizedValue;
+        updateSummary();
+      });
+      effortInput.addEventListener("blur", async () => {
+        todo.effort = sanitizeEffortValue(effortInput.value);
+        effortInput.value = todo.effort;
+        commitEditSnapshot(`effort:${todo.id}`);
+        await saveTodos();
+      });
+      detailField.append(effortInput);
+    }
+
     const deleteButton = document.createElement("button");
     deleteButton.className = "icon-button danger";
     deleteButton.type = "button";
@@ -573,7 +668,7 @@ const renderTodos = () => {
     rowActions.className = "row-actions";
     rowActions.append(deleteButton, addButton);
 
-    item.append(dragHandle, checkbox, input, rowActions);
+    item.append(dragHandle, checkbox, input, detailField, rowActions);
     todoList.append(item);
   });
 
@@ -752,6 +847,7 @@ currentListTitle.addEventListener("blur", async () => {
 });
 showIncomplete.addEventListener("change", render);
 showCompleted.addEventListener("change", render);
+detailModeSelect.addEventListener("change", render);
 window.addEventListener("keydown", (event) => {
   if (event.key.toLowerCase() !== "z" || !event.ctrlKey || event.shiftKey || event.altKey || event.metaKey) {
     return;

@@ -17,6 +17,7 @@ body {
 
 button,
 input,
+select,
 textarea {
   font: inherit;
 }
@@ -100,10 +101,27 @@ textarea {
 
 .app-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
   margin-bottom: 18px;
+}
+
+.top-actions {
+  display: grid;
+  justify-items: end;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.detail-mode-select {
+  width: 118px;
+  min-height: 34px;
+  padding: 5px 28px 5px 9px;
+  border: 1px solid #c8d1dc;
+  border-radius: 8px;
+  color: #2f3740;
+  background: #ffffff;
 }
 
 .list-title-field {
@@ -175,7 +193,7 @@ textarea {
 
 .todo-item {
   display: grid;
-  grid-template-columns: 28px 28px minmax(0, 1fr) auto;
+  grid-template-columns: 28px 28px minmax(0, 1fr) auto auto;
   align-items: start;
   gap: 10px;
   min-height: 52px;
@@ -244,6 +262,39 @@ textarea {
 .todo-item[data-completed="true"] .todo-title {
   color: #8a929d;
   text-decoration: line-through;
+}
+
+.todo-detail-field {
+  align-self: center;
+  min-width: 0;
+}
+
+.todo-detail-field:empty {
+  display: none;
+}
+
+.todo-date,
+.todo-effort {
+  width: 126px;
+  min-height: 34px;
+  padding: 5px 8px;
+  border: 1px solid #c8d1dc;
+  border-radius: 8px;
+  color: #20242a;
+  background: #ffffff;
+}
+
+.todo-effort {
+  width: 88px;
+  text-align: right;
+}
+
+.todo-date:focus,
+.todo-effort:focus,
+.detail-mode-select:focus {
+  outline: 0;
+  border-color: #226f54;
+  box-shadow: 0 0 0 2px rgba(34, 111, 84, 0.16);
 }
 
 .drag-handle {
@@ -361,5 +412,14 @@ textarea {
     gap: 8px;
     margin-left: calc(var(--todo-depth, 0) * 24px);
     padding: 8px;
+  }
+
+  .todo-detail-field {
+    grid-column: 3 / 4;
+  }
+
+  .row-actions {
+    grid-column: 4 / 5;
+    grid-row: 1 / 3;
   }
 }
