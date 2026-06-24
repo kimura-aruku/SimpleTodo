@@ -77,6 +77,7 @@ const createInitialState = () => {
 
   return {
     selectedListId: list.id,
+    detailMode: "simple",
     lists: [list]
   };
 };
@@ -89,6 +90,7 @@ const normalizeState = (parsed) => {
     const list = createDefaultList("マイTodo", todos.length > 0 ? todos : [createDefaultTodo()]);
     return {
       selectedListId: list.id,
+      detailMode: "simple",
       lists: [list]
     };
   }
@@ -115,9 +117,11 @@ const normalizeState = (parsed) => {
   }
 
   const selectedListExists = lists.some((list) => list.id === parsed.selectedListId);
+  const detailMode = ["simple", "deadline", "effort"].includes(parsed.detailMode) ? parsed.detailMode : "simple";
 
   return {
     selectedListId: selectedListExists ? parsed.selectedListId : lists[0].id,
+    detailMode,
     lists
   };
 };

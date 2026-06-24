@@ -12,6 +12,7 @@ const showCompleted = document.querySelector("#showCompleted");
 
 let state = {
   selectedListId: "",
+  detailMode: "simple",
   lists: []
 };
 
@@ -97,6 +98,8 @@ const createTodoList = () => ({
 });
 
 const getCurrentList = () => state.lists.find((list) => list.id === state.selectedListId) ?? state.lists[0];
+
+const getDetailMode = () => state.detailMode || "simple";
 
 const cloneState = (targetState = state) => JSON.parse(JSON.stringify(targetState));
 
@@ -214,7 +217,7 @@ const updateSummary = () => {
   const incompleteTodos = todos.filter((todo) => !todo.completed);
   const completedCount = completedTodos.length;
   const incompleteCount = todos.length - completedCount;
-  if (detailModeSelect.value !== "effort") {
+  if (getDetailMode() !== "effort") {
     summaryText.textContent = `未完了 ${incompleteCount} / 完了 ${completedCount}`;
     return;
   }
@@ -601,7 +604,7 @@ const renderTodos = () => {
 
     const detailField = document.createElement("div");
     detailField.className = "todo-detail-field";
-    if (detailModeSelect.value === "deadline") {
+    if (getDetailMode() === "deadline") {
       const dueDateInput = document.createElement("input");
       dueDateInput.className = "todo-date";
       dueDateInput.type = "date";
@@ -621,7 +624,7 @@ const renderTodos = () => {
         await saveTodos();
       });
       detailField.append(dueDateInput);
-    } else if (detailModeSelect.value === "effort") {
+    } else if (getDetailMode() === "effort") {
       const effortInput = document.createElement("input");
       effortInput.className = "todo-effort";
       effortInput.type = "text";
@@ -847,7 +850,11 @@ currentListTitle.addEventListener("blur", async () => {
 });
 showIncomplete.addEventListener("change", render);
 showCompleted.addEventListener("change", render);
-detailModeSelect.addEventListener("change", render);
+detailModeSelect.addEventListener("change", async () => {
+  state.detailMode = detailModeSelect.value;
+  await saveTodos();
+  render();
+});
 window.addEventListener("keydown", (event) => {
   if (event.key.toLowerCase() !== "z" || !event.ctrlKey || event.shiftKey || event.altKey || event.metaKey) {
     return;
@@ -868,6 +875,7 @@ window.addEventListener("pointercancel", finishTodoDrag);
 
 const boot = async () => {
   state = await window.todoApi.loadTodos();
+  detailModeSelect.value = getDetailMode();
   render();
 };
 

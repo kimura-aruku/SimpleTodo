@@ -26,6 +26,7 @@ TodoデータはElectronの `app.getPath("userData")` 配下に `todos.json` と
 ```json
 {
   "selectedListId": "UUID",
+  "detailMode": "simple",
   "lists": [
     {
       "id": "UUID",
@@ -56,7 +57,7 @@ TodoデータはElectronの `app.getPath("userData")` 配下に `todos.json` と
 - 保存データの読み書き時に、各Todoリストが必ず1つ以上のTodoを持つよう正規化する。
 - Todoの締切は `dueDate` に `YYYY-MM-DD` 形式または空文字で保存する。
 - Todoの工数は `effort` に数値文字列または空文字で保存し、表示時に未完了・完了ごとに合計する。
-- 詳細表示モードは保存対象にせず、画面表示のみを切り替える一時状態として扱う。
+- 詳細表示モードは `detailMode` に `simple`、`deadline`、`effort` のいずれかで保存し、起動時に復元する。
 - Todoの親子関係は `parentId` で表現する。`parentId: null` のTodoはルートTodoとして扱う。
 - Todoの描画は保存配列から親子ツリーを組み立て、深さに応じてインデントする。
 - Todoの並び替えと親子関係変更はHTML Drag and Drop APIを使い、ドロップ位置の縦方向で前後、横方向で階層を判定する。
