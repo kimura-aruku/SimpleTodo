@@ -273,6 +273,11 @@ textarea {
   display: none;
 }
 
+.todo-date-wrapper {
+  position: relative;
+  width: 126px;
+}
+
 .todo-date,
 .todo-effort {
   width: 126px;
@@ -287,6 +292,50 @@ textarea {
 .todo-effort {
   width: 56px;
   text-align: right;
+}
+
+.todo-date-wrapper .todo-date {
+  width: 100%;
+}
+
+.todo-date-placeholder {
+  position: absolute;
+  top: 1px;
+  bottom: 1px;
+  left: 9px;
+  right: 34px;
+  display: flex;
+  align-items: center;
+  padding: 0;
+  border: 0;
+  color: #8a929d;
+  font: inherit;
+  text-align: left;
+  background: transparent;
+  cursor: default;
+  user-select: none;
+  z-index: 1;
+}
+
+.todo-date-placeholder.is-empty {
+  background: #ffffff;
+}
+
+.todo-date.is-empty::-webkit-datetime-edit,
+.todo-date.is-empty::-webkit-datetime-edit-fields-wrapper,
+.todo-date.is-empty::-webkit-datetime-edit-text,
+.todo-date.is-empty::-webkit-datetime-edit-year-field,
+.todo-date.is-empty::-webkit-datetime-edit-month-field,
+.todo-date.is-empty::-webkit-datetime-edit-day-field {
+  color: transparent;
+}
+
+.todo-effort::placeholder {
+  color: #8a929d;
+}
+
+.todo-date:not(.is-empty)::-webkit-datetime-edit {
+  color: #20242a;
 }
 
 .todo-date:focus,

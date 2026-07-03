@@ -605,6 +605,8 @@ const renderTodos = () => {
     const detailField = document.createElement("div");
     detailField.className = "todo-detail-field";
     if (getDetailMode() === "deadline") {
+      const dueDateWrapper = document.createElement("div");
+      dueDateWrapper.className = "todo-date-wrapper";
       const dueDateInput = document.createElement("input");
       dueDateInput.className = "todo-date";
       dueDateInput.type = "date";
@@ -612,18 +614,46 @@ const renderTodos = () => {
       dueDateInput.min = "1900-01-01";
       dueDateInput.placeholder = todayIsoDate();
       dueDateInput.setAttribute("aria-label", "締切日");
+      const dueDatePlaceholder = document.createElement("button");
+      dueDatePlaceholder.className = "todo-date-placeholder";
+      dueDatePlaceholder.type = "button";
+      dueDatePlaceholder.setAttribute("aria-label", "締切日を選択");
+      const syncDueDateInputState = () => {
+        const isEmpty = dueDateInput.value === "";
+        dueDateInput.classList.toggle("is-empty", isEmpty);
+        dueDatePlaceholder.classList.toggle("is-empty", isEmpty);
+        dueDatePlaceholder.textContent = isEmpty ? "年/月/日" : "";
+      };
+      const openDueDatePicker = () => {
+        if (typeof dueDateInput.showPicker === "function") {
+          dueDateInput.showPicker();
+          return;
+        }
+        dueDateInput.focus({ preventScroll: true });
+        dueDateInput.click();
+      };
+      syncDueDateInputState();
       dueDateInput.addEventListener("focus", () => beginEdit(`due-date:${todo.id}`, dueDateInput));
+      dueDateInput.addEventListener("input", syncDueDateInputState);
+      dueDatePlaceholder.addEventListener("pointerdown", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        openDueDatePicker();
+      });
       dueDateInput.addEventListener("change", async () => {
         todo.dueDate = dueDateInput.value;
+        syncDueDateInputState();
         commitEditSnapshot(`due-date:${todo.id}`);
         await saveTodos();
       });
       dueDateInput.addEventListener("blur", async () => {
         todo.dueDate = dueDateInput.value;
+        syncDueDateInputState();
         commitEditSnapshot(`due-date:${todo.id}`);
         await saveTodos();
       });
-      detailField.append(dueDateInput);
+      dueDateWrapper.append(dueDateInput, dueDatePlaceholder);
+      detailField.append(dueDateWrapper);
     } else if (getDetailMode() === "effort") {
       const effortInput = document.createElement("input");
       effortInput.className = "todo-effort";
