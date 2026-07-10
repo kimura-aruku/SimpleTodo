@@ -93,13 +93,14 @@ const createTodo = (parentId = null) => ({
 const createTodoList = () => ({
   id: crypto.randomUUID(),
   name: `新しいリスト ${state.lists.length + 1}`,
+  detailMode: "simple",
   todos: [createTodo()],
   createdAt: new Date().toISOString()
 });
 
 const getCurrentList = () => state.lists.find((list) => list.id === state.selectedListId) ?? state.lists[0];
 
-const getDetailMode = () => state.detailMode || "simple";
+const getDetailMode = () => getCurrentList()?.detailMode || state.detailMode || "simple";
 
 const cloneState = (targetState = state) => JSON.parse(JSON.stringify(targetState));
 
@@ -520,6 +521,7 @@ const renderSidebar = () => {
 const renderTodos = () => {
   const currentList = getCurrentList();
   currentListTitle.value = currentList?.name ?? "Todoリストなし";
+  detailModeSelect.value = getDetailMode();
   todoList.innerHTML = "";
   const visibleTodoEntries = getVisibleTodoEntries();
 
@@ -881,6 +883,12 @@ currentListTitle.addEventListener("blur", async () => {
 showIncomplete.addEventListener("change", render);
 showCompleted.addEventListener("change", render);
 detailModeSelect.addEventListener("change", async () => {
+  const currentList = getCurrentList();
+  if (!currentList) {
+    return;
+  }
+
+  currentList.detailMode = detailModeSelect.value;
   state.detailMode = detailModeSelect.value;
   await saveTodos();
   render();

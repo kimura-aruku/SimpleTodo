@@ -65,6 +65,7 @@ const createDefaultTodo = (title = "", parentId = null) => ({
 const createDefaultList = (name = "マイTodo", todos = []) => ({
   id: randomUUID(),
   name,
+  detailMode: "simple",
   todos,
   createdAt: new Date().toISOString()
 });
@@ -85,6 +86,8 @@ const createInitialState = () => {
 const getTodoFilePath = () => path.join(app.getPath("userData"), "todos.json");
 
 const normalizeState = (parsed) => {
+  const normalizeDetailMode = (detailMode) => ["simple", "deadline", "effort"].includes(detailMode) ? detailMode : "simple";
+
   if (Array.isArray(parsed)) {
     const todos = normalizeTodos(parsed);
     const list = createDefaultList("マイTodo", todos.length > 0 ? todos : [createDefaultTodo()]);
@@ -107,6 +110,7 @@ const normalizeState = (parsed) => {
       return {
         id: list.id,
         name: typeof list.name === "string" && list.name.trim() ? list.name : "無題のリスト",
+        detailMode: normalizeDetailMode(list.detailMode || parsed.detailMode),
         todos: todos.length > 0 ? todos : [createDefaultTodo()],
         createdAt: typeof list.createdAt === "string" ? list.createdAt : new Date().toISOString()
       };
@@ -117,11 +121,12 @@ const normalizeState = (parsed) => {
   }
 
   const selectedListExists = lists.some((list) => list.id === parsed.selectedListId);
-  const detailMode = ["simple", "deadline", "effort"].includes(parsed.detailMode) ? parsed.detailMode : "simple";
+  const selectedListId = selectedListExists ? parsed.selectedListId : lists[0].id;
+  const selectedList = lists.find((list) => list.id === selectedListId);
 
   return {
-    selectedListId: selectedListExists ? parsed.selectedListId : lists[0].id,
-    detailMode,
+    selectedListId,
+    detailMode: selectedList?.detailMode ?? "simple",
     lists
   };
 };
