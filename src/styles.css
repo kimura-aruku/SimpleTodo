@@ -100,23 +100,22 @@ textarea {
 }
 
 .app-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
+  position: relative;
+  min-height: 80px;
   margin-bottom: 18px;
 }
 
 .app-header > div:first-child {
-  flex: 1 1 auto;
   min-width: 0;
 }
 
 .top-actions {
+  position: absolute;
+  top: 0;
+  right: 0;
   display: grid;
   justify-items: end;
   gap: 8px;
-  flex: 0 0 auto;
 }
 
 .detail-mode-select {
@@ -131,7 +130,7 @@ textarea {
 
 .list-title-field {
   display: block;
-  width: 100%;
+  width: calc(100% - 54px);
   margin: 0;
   padding: 0;
   border: 0;
