@@ -107,6 +107,11 @@ textarea {
   margin-bottom: 18px;
 }
 
+.app-header > div:first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 .top-actions {
   display: grid;
   justify-items: end;
@@ -126,7 +131,7 @@ textarea {
 
 .list-title-field {
   display: block;
-  width: min(520px, 100%);
+  width: 100%;
   margin: 0;
   padding: 0;
   border: 0;
