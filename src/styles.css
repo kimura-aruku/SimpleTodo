@@ -43,18 +43,10 @@ textarea {
 .sidebar-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 10px;
   min-height: 48px;
   margin-bottom: 14px;
-}
-
-.sidebar-header h2 {
-  margin: 0;
-  color: #3c424b;
-  font-size: 16px;
-  font-weight: 700;
-  letter-spacing: 0;
 }
 
 .list-actions,
