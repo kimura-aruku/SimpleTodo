@@ -19,6 +19,10 @@ let state = {
 let draggedTodoId = "";
 let dragPreview = null;
 let draggedItemElement = null;
+let draggedListId = "";
+let draggedListElement = null;
+let listDropIntent = null;
+let pendingListDrag = null;
 const movedEmptyTodoIds = new Set();
 const undoStack = [];
 const editSnapshots = new Map();
@@ -502,11 +506,15 @@ const renderSidebar = () => {
 
   state.lists.forEach((list) => {
     const item = document.createElement("li");
+    item.className = "list-nav-item";
+    item.dataset.listId = list.id;
     const button = document.createElement("button");
     button.className = "list-nav-button";
     button.type = "button";
     button.textContent = list.name;
+    button.title = "クリックで選択、ドラッグで並び替え";
     button.dataset.active = String(list.id === state.selectedListId);
+    button.addEventListener("pointerdown", (event) => startListDrag(list.id, item, event));
     button.addEventListener("click", async () => {
       state.selectedListId = list.id;
       await saveTodos();
@@ -516,6 +524,116 @@ const renderSidebar = () => {
     item.append(button);
     listNav.append(item);
   });
+};
+
+const clearListDropPreview = () => {
+  listDropIntent = null;
+  listNav.querySelector(".list-drop-preview")?.remove();
+};
+
+const startListDrag = (listId, item, event) => {
+  pendingListDrag = {
+    listId,
+    item,
+    startX: event.clientX,
+    startY: event.clientY
+  };
+};
+
+const updateListDrag = (event) => {
+  if (!draggedListId && pendingListDrag) {
+    const movedX = event.clientX - pendingListDrag.startX;
+    const movedY = event.clientY - pendingListDrag.startY;
+    if (Math.hypot(movedX, movedY) < 6) {
+      return;
+    }
+
+    draggedListId = pendingListDrag.listId;
+    draggedListElement = pendingListDrag.item;
+    draggedListElement.dataset.dragging = "true";
+  }
+
+  if (!draggedListId) {
+    return;
+  }
+
+  clearListDropPreview();
+  const items = [...listNav.querySelectorAll(".list-nav-item:not([data-dragging='true'])")];
+  if (items.length === 0) {
+    return;
+  }
+
+  const positions = [
+    {
+      referenceId: items[0].dataset.listId,
+      placement: "before",
+      y: items[0].getBoundingClientRect().top
+    },
+    ...items.map((item) => ({
+      referenceId: item.dataset.listId,
+      placement: "after",
+      y: item.getBoundingClientRect().bottom
+    }))
+  ];
+  const nearestPosition = positions.reduce((nearest, position) => (
+    Math.abs(event.clientY - position.y) < Math.abs(event.clientY - nearest.y) ? position : nearest
+  ));
+  const referenceItem = items.find((item) => item.dataset.listId === nearestPosition.referenceId);
+  if (!referenceItem) {
+    return;
+  }
+
+  const preview = document.createElement("li");
+  preview.className = "list-drop-preview";
+  if (nearestPosition.placement === "before") {
+    referenceItem.before(preview);
+  } else {
+    referenceItem.after(preview);
+  }
+  listDropIntent = {
+    referenceId: nearestPosition.referenceId,
+    placement: nearestPosition.placement
+  };
+};
+
+const finishListDrag = async (event) => {
+  if (!draggedListId) {
+    pendingListDrag = null;
+    return;
+  }
+
+  if (event.type === "pointercancel") {
+    clearListDropPreview();
+    draggedListElement?.removeAttribute("data-dragging");
+    draggedListElement = null;
+    draggedListId = "";
+    pendingListDrag = null;
+    return;
+  }
+
+  updateListDrag(event);
+  const intent = listDropIntent;
+  clearListDropPreview();
+  draggedListElement?.removeAttribute("data-dragging");
+  draggedListElement = null;
+
+  const sourceIndex = state.lists.findIndex((list) => list.id === draggedListId);
+  const referenceIndex = state.lists.findIndex((list) => list.id === intent?.referenceId);
+  if (sourceIndex >= 0 && referenceIndex >= 0) {
+    const undoSnapshot = cloneState();
+    const [movedList] = state.lists.splice(sourceIndex, 1);
+    const adjustedReferenceIndex = state.lists.findIndex((list) => list.id === intent.referenceId);
+    const insertIndex = intent.placement === "before" ? adjustedReferenceIndex : adjustedReferenceIndex + 1;
+    state.lists.splice(insertIndex, 0, movedList);
+    if (!statesAreEqual(undoSnapshot, state)) {
+      pushUndoSnapshot(undoSnapshot);
+      await saveTodos();
+      render();
+    }
+  }
+
+  draggedListId = "";
+  pendingListDrag = null;
 };
 
 const renderTodos = () => {
@@ -907,9 +1025,18 @@ window.addEventListener("keydown", (event) => {
   event.preventDefault();
   undoLastAction().catch((error) => logClientError("renderer:undo", error));
 });
-window.addEventListener("pointermove", updateTodoDrag);
-window.addEventListener("pointerup", finishTodoDrag);
-window.addEventListener("pointercancel", finishTodoDrag);
+window.addEventListener("pointermove", (event) => {
+  updateTodoDrag(event);
+  updateListDrag(event);
+});
+window.addEventListener("pointerup", (event) => {
+  finishTodoDrag(event);
+  finishListDrag(event).catch((error) => logClientError("renderer:listDragEnd", error));
+});
+window.addEventListener("pointercancel", (event) => {
+  finishTodoDrag(event);
+  finishListDrag(event).catch((error) => logClientError("renderer:listDragCancel", error));
+});
 
 const boot = async () => {
   state = await window.todoApi.loadTodos();

@@ -64,6 +64,22 @@ textarea {
   list-style: none;
 }
 
+.list-nav-item {
+  border-radius: 8px;
+}
+
+.list-drop-preview {
+  height: 3px;
+  margin: -4px 2px -5px;
+  border-radius: 999px;
+  background: #226f54;
+  pointer-events: none;
+}
+
+.list-nav-item[data-dragging="true"] {
+  display: none;
+}
+
 .list-nav-button {
   width: 100%;
   min-height: 40px;
@@ -74,7 +90,12 @@ textarea {
   color: #333942;
   background: transparent;
   text-align: left;
-  cursor: pointer;
+  cursor: grab;
+  touch-action: none;
+}
+
+.list-nav-button:active {
+  cursor: grabbing;
 }
 
 .list-nav-button:hover {

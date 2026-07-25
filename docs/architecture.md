@@ -59,6 +59,7 @@ TodoデータはElectronの `app.getPath("userData")` 配下に `todos.json` と
 - Todoの締切は `dueDate` に `YYYY-MM-DD` 形式または空文字で保存する。
 - Todoの工数は `effort` に数値文字列または空文字で保存し、表示時に未完了・完了ごとに合計する。
 - 詳細表示モードはTodoリストごとの `detailMode` に `simple`、`deadline`、`effort` のいずれかで保存し、リスト切り替え時と起動時に復元する。
+- Todoリストの表示順は `lists` 配列の順序で表現し、ドラッグ完了時に配列を並べ替えて保存する。
 - 旧形式のルート直下 `detailMode` が保存されている場合は、起動時の正規化で各Todoリストの `detailMode` へ移行する。
 - Todoの親子関係は `parentId` で表現する。`parentId: null` のTodoはルートTodoとして扱う。
 - Todoの描画は保存配列から親子ツリーを組み立て、深さに応じてインデントする。
