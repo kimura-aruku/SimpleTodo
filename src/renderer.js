@@ -762,7 +762,7 @@ const renderTodos = () => {
     detailsButton.className = "todo-details-button";
     detailsButton.type = "button";
     detailsButton.dataset.hasDetails = String(Boolean(todo.details));
-    detailsButton.textContent = "💬";
+    detailsButton.textContent = "︙";
     detailsButton.title = "詳細・現状を編集";
     detailsButton.setAttribute("aria-label", "Todoの詳細・現状を編集");
     detailsButton.addEventListener("pointerdown", (event) => event.preventDefault());
