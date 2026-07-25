@@ -9,6 +9,8 @@ const addTopButton = document.querySelector("#addTopButton");
 const detailModeSelect = document.querySelector("#detailModeSelect");
 const showIncomplete = document.querySelector("#showIncomplete");
 const showCompleted = document.querySelector("#showCompleted");
+const todoDetailsDialog = document.querySelector("#todoDetailsDialog");
+const todoDetailsInput = document.querySelector("#todoDetailsInput");
 
 let state = {
   selectedListId: "",
@@ -28,6 +30,7 @@ const undoStack = [];
 const editSnapshots = new Map();
 let activeEditKey = "";
 let activeEditInitialValue = "";
+let editingDetailsTodoId = "";
 
 const indentWidth = 28;
 const maxUndoEntries = 100;
@@ -90,6 +93,7 @@ const createTodo = (parentId = null) => ({
   completed: false,
   dueDate: "",
   effort: "",
+  details: "",
   parentId,
   createdAt: new Date().toISOString()
 });
@@ -178,6 +182,36 @@ const isEditableElement = (element) => element instanceof HTMLInputElement
 
 const saveTodos = async () => {
   await window.todoApi.saveTodos(state);
+};
+
+const openTodoDetails = (todo) => {
+  editingDetailsTodoId = todo.id;
+  todoDetailsInput.value = typeof todo.details === "string" ? todo.details : "";
+  beginEdit(`details:${todo.id}`, todoDetailsInput);
+  todoDetailsDialog.showModal();
+  requestAnimationFrame(() => {
+    todoDetailsInput.focus();
+    todoDetailsInput.setSelectionRange(todoDetailsInput.value.length, todoDetailsInput.value.length);
+  });
+};
+
+const saveAndCloseTodoDetails = async () => {
+  const todoId = editingDetailsTodoId;
+  editingDetailsTodoId = "";
+  if (!todoId) {
+    return;
+  }
+
+  const todo = getCurrentList()?.todos.find((candidate) => candidate.id === todoId);
+  if (!todo) {
+    editSnapshots.delete(`details:${todoId}`);
+    return;
+  }
+
+  todo.details = todoDetailsInput.value;
+  commitEditSnapshot(`details:${todoId}`);
+  await saveTodos();
+  render();
 };
 
 const buildTodoTree = (todos) => {
@@ -724,6 +758,17 @@ const renderTodos = () => {
 
     const detailField = document.createElement("div");
     detailField.className = "todo-detail-field";
+    const detailsButton = document.createElement("button");
+    detailsButton.className = "todo-details-button";
+    detailsButton.type = "button";
+    detailsButton.dataset.hasDetails = String(Boolean(todo.details));
+    detailsButton.textContent = "💬";
+    detailsButton.title = "詳細・現状を編集";
+    detailsButton.setAttribute("aria-label", "Todoの詳細・現状を編集");
+    detailsButton.addEventListener("pointerdown", (event) => event.preventDefault());
+    detailsButton.addEventListener("click", () => openTodoDetails(todo));
+    detailField.append(detailsButton);
+
     if (getDetailMode() === "deadline") {
       const dueDateWrapper = document.createElement("div");
       dueDateWrapper.className = "todo-date-wrapper";
@@ -820,6 +865,13 @@ const renderTodos = () => {
     const rowActions = document.createElement("div");
     rowActions.className = "row-actions";
     rowActions.append(deleteButton, addButton);
+
+    if (typeof todo.details === "string" && todo.details.length > 0) {
+      const detailsTooltip = document.createElement("div");
+      detailsTooltip.className = "todo-details-tooltip";
+      detailsTooltip.textContent = todo.details;
+      item.append(detailsTooltip);
+    }
 
     item.append(dragHandle, checkbox, input, detailField, rowActions);
     todoList.append(item);
@@ -1024,6 +1076,14 @@ window.addEventListener("keydown", (event) => {
 
   event.preventDefault();
   undoLastAction().catch((error) => logClientError("renderer:undo", error));
+});
+todoDetailsDialog.addEventListener("click", (event) => {
+  if (event.target === todoDetailsDialog) {
+    todoDetailsDialog.close();
+  }
+});
+todoDetailsDialog.addEventListener("close", () => {
+  saveAndCloseTodoDetails().catch((error) => logClientError("renderer:detailsClose", error));
 });
 window.addEventListener("pointermove", (event) => {
   updateTodoDrag(event);

@@ -58,6 +58,7 @@ const createDefaultTodo = (title = "", parentId = null) => ({
   completed: false,
   dueDate: "",
   effort: "",
+  details: "",
   parentId,
   createdAt: new Date().toISOString()
 });
@@ -142,6 +143,7 @@ const normalizeTodos = (todos) => {
       completed: Boolean(todo.completed),
       dueDate: typeof todo.dueDate === "string" && (todo.dueDate === "" || datePattern.test(todo.dueDate)) ? todo.dueDate : "",
       effort: typeof todo.effort === "string" && effortPattern.test(todo.effort) ? todo.effort : "",
+      details: typeof todo.details === "string" ? todo.details : "",
       parentId: typeof todo.parentId === "string" ? todo.parentId : null,
       createdAt: typeof todo.createdAt === "string" ? todo.createdAt : new Date().toISOString()
     }));

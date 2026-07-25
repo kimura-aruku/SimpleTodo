@@ -52,6 +52,17 @@
       </section>
     </main>
 
+    <dialog class="todo-details-dialog" id="todoDetailsDialog" aria-labelledby="todoDetailsDialogTitle">
+      <form method="dialog">
+        <header class="todo-details-dialog-header">
+          <h2 id="todoDetailsDialogTitle">Todoの詳細・現状</h2>
+          <button class="dialog-close-button" type="submit" aria-label="詳細を保存して閉じる" title="保存して閉じる">×</button>
+        </header>
+        <textarea id="todoDetailsInput" rows="10" placeholder="詳細や現状を入力"></textarea>
+        <p class="todo-details-dialog-hint">閉じると自動的に保存されます</p>
+      </form>
+    </dialog>
+
     <script src="./renderer.js"></script>
   </body>
 </html>
