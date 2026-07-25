@@ -39,6 +39,7 @@ TodoデータはElectronの `app.getPath("userData")` 配下に `todos.json` と
           "completed": false,
           "dueDate": "",
           "effort": "",
+          "details": "",
           "parentId": null,
           "createdAt": "ISO日時"
         }
@@ -58,6 +59,10 @@ TodoデータはElectronの `app.getPath("userData")` 配下に `todos.json` と
 - 保存データの読み書き時に、各Todoリストが必ず1つ以上のTodoを持つよう正規化する。
 - Todoの締切は `dueDate` に `YYYY-MM-DD` 形式または空文字で保存する。
 - Todoの工数は `effort` に数値文字列または空文字で保存し、表示時に未完了・完了ごとに合計する。
+- Todoの詳細は `details` に改行を含む文字列または空文字で保存し、旧データに項目がない場合は空文字へ正規化する。
+- Todo詳細の編集ポップアップはHTMLの `dialog` 要素で実装し、閉じる操作時に状態へ反映して保存する。
+- Todo詳細を変更した場合は、ポップアップを開いた時点の状態をUndoスナップショットとして扱う。
+- Todo詳細のツールチップはTodo行内に描画し、詳細が空の場合は表示しない。
 - 詳細表示モードはTodoリストごとの `detailMode` に `simple`、`deadline`、`effort` のいずれかで保存し、リスト切り替え時と起動時に復元する。
 - Todoリストの表示順は `lists` 配列の順序で表現し、ドラッグ完了時に配列を並べ替えて保存する。
 - 旧形式のルート直下 `detailMode` が保存されている場合は、起動時の正規化で各Todoリストの `detailMode` へ移行する。
