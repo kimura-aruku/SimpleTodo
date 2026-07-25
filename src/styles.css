@@ -2,6 +2,7 @@
   color: #22252a;
   font-family: "Yu Gothic UI", "Meiryo", system-ui, sans-serif;
   background: #f6f7f9;
+  scrollbar-gutter: stable;
 }
 
 * {
